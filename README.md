@@ -4,7 +4,7 @@
 
 **电影工业级 AI 短视频与多模态视频流一站式工作台**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg?style=flat-square)](LICENSE)
 [![Framework](https://img.shields.io/badge/Next.js-14.2-black?style=flat-square&logo=next.js)](#)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?style=flat-square&logo=typescript)](#)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?style=flat-square&logo=tailwind-css)](#)
@@ -99,6 +99,8 @@ npm run dev
 
 ---
 
-## 📄 开源许可证
+## 📄 开源许可证与商业授权
 
-本项目采用 [MIT License](LICENSE) 开源协议。
+- **开源协议**：本项目开源版本采用 **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)** 协议。
+- **开源权益保护说明**：任何第三方基于本项目进行二次开发、修改或通过网络服务器（Web/API）向公众提供服务的衍生作品，**必须同时以 AGPL-3.0 协议开源其全部修改后的完整源代码**。
+- **商业授权 (Commercial License)**：如果您希望将本项目闭源商用、集成入企业私有商业产品或作为商业 SaaS 运营而无需开源您的专有业务代码，请联系获取专有的商业免开源许可授权。
