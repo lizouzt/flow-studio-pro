@@ -1,0 +1,33 @@
+{
+  "dashscope": {
+    "api_key": "",
+    "tts": {
+      "model": "cosyvoice-v1",
+      "voice": "longxiaochun",
+      "speech_rate": 1.05,
+      "pitch_rate": 1.0,
+      "format": "mp3"
+    },
+    "image": {
+      "model": "wanx-2.1-t2i-turbo",
+      "size": "720*1280",
+      "style": "<auto>"
+    }
+  },
+  "asr": {
+    "provider": "custom_whisper",
+    "endpoint_url": "http://127.0.0.1:8000/v1/audio/transcriptions",
+    "api_key": "",
+    "model": "whisper-1"
+  },
+  "pacing": {
+    "target_shot_duration_sec": 5.5,
+    "fallback_mode": "hybrid_image"
+  },
+  "plugins": {
+    "jianying_draft": {
+      "enabled": true,
+      "python_path": "python"
+    }
+  }
+}

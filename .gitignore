@@ -1,0 +1,97 @@
+# ==========================================
+# 1. Dependencies & Package Managers
+# ==========================================
+node_modules/
+/jspm_packages/
+/web_modules/
+.pnpm-debug.log*
+
+# ==========================================
+# 2. Next.js Build Output & Dev Caches
+# ==========================================
+.next/
+/out/
+/build/
+/dist/
+.open-next/
+next-env.d.ts
+
+# ==========================================
+# 3. Compile Info & Tooling Caches
+# ==========================================
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+.eslintcache
+.stylelintcache
+.prettiercache
+.parcel-cache/
+.cache/
+.husky/_
+
+# ==========================================
+# 4. Environment Variables & Secrets
+# ==========================================
+.env
+.env.*
+# Do NOT ignore .env.example
+!.env.example
+
+# ==========================================
+# 5. Supabase Local CLI Development
+# ==========================================
+# Ignore the local hidden state of Supabase CLI
+.supabase/
+# Keep the main tracked migration/config files under supabase/
+!supabase/
+# Local DB dumps from `npm run db:backup`
+/backups/
+
+# ==========================================
+# 6. Test & Coverage Results
+# ==========================================
+coverage/
+.nyc_output/
+.jest/
+cypress/screenshots/
+cypress/videos/
+.vitest/
+# Playwright
+test-results/
+playwright-report/
+tests/.auth/
+
+# ==========================================
+# 7. IDE & Text Editors
+# ==========================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
+# AI Agent
+.claude/*
+.gemini/*
+
+# ==========================================
+# 8. OS files & Diagnostic logs
+# ==========================================
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.deploy.lock.d
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json*
+
+# Marketing site Playwright temp (auth state, raw webm)
+site/assets/media/_recordings/
