@@ -2,7 +2,7 @@
 
 # 🎬 Flow Studio Pro
 
-**电影工业级 AI 短视频与多模态视频流一站式工作台**
+**电影工业级 AI 短视频与多模态视频流一站式工作台 (融合导演引擎版)**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg?style=flat-square)](LICENSE)
 [![Framework](https://img.shields.io/badge/Next.js-14.2-black?style=flat-square&logo=next.js)](#)
@@ -10,26 +10,30 @@
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?style=flat-square&logo=tailwind-css)](#)
 
 <p align="center">
-  <b>从「AI灵感写稿 → 阿里云百炼配音 → 云端Whisper对齐 → 通义万相首帧生图 → Google Flow / Seedance 动力学运镜 → 剪映专业版草稿」全链路闭环</b><br/>
-  打破传统 AI 短视频“静态图片慢推拉”的死板质感，以标准 I2V（图生视频）工业流水线驱动真实生成式视频创作。
+  <b>融合「爆款故事写作 + 阿里百炼双向闭环 + 独立Critic智能质检 + 双向光流插值 + Speed Ramping动感曲线 + 剪映/1080p母版双轨交付」</b><br/>
+  将极客级代码化后期（Code-as-Post-Production）与高直观度 WebUI 完美融合，赋能真正电影级生成式短视频创作。
 </p>
 
 </div>
 
 ---
 
-## ✨ 核心特性
+## ✨ 核心融合矩阵
 
-- 🧠 **双风格爆款口播 Writing-DNA**：内置历史叙事（追问反常、具体行动与代价）与传奇人物（情绪起伏、巅峰到磨难、金句收尾）双写作引擎，支持一键从 0 到 1 构思全文，并提供“强化前3秒黄金钩子”与“去AI味口播化”精修工具。
-- 🎙️ **阿里云百炼语音合成 (DashScope TTS)**：深度整合 CosyVoice 与 Sambert 高表现力语音大模型，支持音色、语速、语调自由调节与声波律动播放。
-- ⏱️ **高精度 Whisper 时间戳对齐**：支持云端/私有化 Whisper ASR 端点服务，毫秒级提取字戳与断句，自动聚合成符合短视频节奏的 4~7 秒标准分镜单元。
-- 🎨 **通义万相 9:16 考据首帧生图**：调用通义万相大模型绘制 9:16 竖屏高水准首帧，锁定人物面孔、服饰形制与光影质感，彻底解决跨镜头画风与角色漂移。
-- 🎥 **电影动力学提示词生成 (Motion Prompts)**：针对 Google Flow (Veo)、字节即梦 Seedance、可灵等主流 I2V 模型，自动生成专业的摄影机运镜与主体动作提示词（中英双语）。
-- 🎞️ **剪映专业版草稿自适应插件**：基于微秒级工程装配协议，支持视频偏长智能裁切、微短无感慢放、动静混剪容错（未渲染视频镜头自动由首帧静态图推拉垫底），一键生成可二次编辑的本地草稿。
+- 🧠 **双模爆款口播 Writing-DNA**：通义千问驱动的“历史叙事”与“传奇人物”双写作引擎，支持从 0 到 1 自动起草全文、强化前 3 秒黄金钩子与口语化去 AI 味。
+- 🎙️ **阿里云百炼高表现力配音 (DashScope TTS)**：CosyVoice 深度融合，支持真实音色、语速调节与声波律动试听。
+- ⏱️ **云端/私有化 Whisper 毫秒级对齐**：毫秒级提取字戳与断句，自动聚合成符合短视频叙事节奏的 4~7 秒标准分镜。
+- 🛡️ **独立 Critic Agent 智能质检 (新融合)**：自动执行负向歧义词审查、首尾帧像素长宽比与透视检测，前置拦截模型乱画与穿帮风险。
+- ⚡ **百炼 DashScope 全自动闭环出片 (新融合)**：一键直调 `wanx2.1-i2v-plus` 异步轮询任务，自动下载落盘绑定视频切片，告别手动跨网页倒腾素材。
+- 🌊 **MCI 双向运动补偿光流对齐 (新融合)**：启用高级重叠块运动补偿（AOBMC），彻底消除变速拉伸时的果冻效应与快动作跳帧。
+- 🚀 **非线性 Speed Ramping 动感曲线 (新融合)**：冲刺起势 ➔ 重音停顿凝固 ➔ 回弹释放，赋予短视频大片级视觉张力。
+- 🎞️ **双轨制工程交付**：
+  - **轨道 1**：剪映专业版本地草稿工程（保留字幕与时间轴，便于二次微调）；
+  - **轨道 2**：纯代码 FFmpeg 直出 1080p Lanczos 升频动感母版（免剪映，本地一键下片）。
 
 ---
 
-## 🛠️ 技术架构
+## 🛠️ 融合后系统架构
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -37,38 +41,27 @@
 │  (React 18 + TypeScript + TailwindCSS + Framer Motion) │
 └───────────────────────────┬────────────────────────────┘
                             │
-        ┌───────────────────┼───────────────────┐
-        ▼                   ▼                   ▼
-┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│ 阿里云百炼    │   │ 云端 Whisper  │   │ 剪映草稿插件  │
-│ (Qwen/Cosy/   │   │ (毫秒级 ASR   │   │ (时长自适应 / │
-│  Wanx API)    │   │  时间戳对齐)  │   │  动静混剪装配)│
-└───────────────┘   └───────────────┘   └───────────────┘
+   ┌────────────────────────┼────────────────────────┐
+   ▼                        ▼                        ▼
+【百炼 DashScope 生态】  【云端 Whisper ASR】    【Media Engine 后期引擎】
+ • Qwen-plus (写作)       • 毫秒级字戳对齐       • Critic 提示词与差分质检
+ • CosyVoice (配音)       • 4~7s 镜头聚合        • 双向光流插值 (MCI/AOBMC)
+ • Wanx-t2i (首帧)                               • 非线性 Speed Ramping
+ • Wanx2.1-i2v (闭环动画)                        • 剪映草稿 / Lanczos 1080p母版
 ```
 
 ---
 
 ## 🚀 快速上手
 
-### 1. 环境准备
-- Node.js 18.17+ 或 20+
-- (可选) Python 3.10+（若需直接导出本地剪映草稿工程，需安装 `plugins/jianying-draft/requirements.txt`）
-
-### 2. 安装依赖
+### 1. 安装依赖
 ```bash
 git clone <your-repo-url>
 cd story-studio-web
 npm install
 ```
 
-### 3. 配置服务密钥
-复制配置模板：
-```bash
-cp studio_config.template.json studio_config.json
-```
-在 `studio_config.json` 中配置你的阿里云百炼 API Key 及 Whisper 端点（亦可在启动后点击界面右上角 **设置图标 ⚙️** 进行可视化填写与保存）。
-
-### 4. 启动工作台
+### 2. 启动工作台
 - **Windows 用户**：直接双击 `start.bat`
 - **命令行用户**：
 ```bash
@@ -78,29 +71,7 @@ npm run dev
 
 ---
 
-## 📂 项目结构
-
-```text
-├── docs/                             # 架构与开发规划文档
-│   ├── ARCHITECTURE_AND_PLAN.md      # 系统全套架构设计契约
-│   ├── DEVELOPMENT_PLAN.md           # 5 大开发阶段与里程碑计划
-│   └── prototype/index.html          # 高保真独立设计原型
-├── plugins/                          # 插件目录
-│   └── jianying-draft/               # 剪映草稿导出插件 (export.py)
-├── src/                              # Next.js 全栈源码
-│   ├── app/                          # App Router 路由与 API (tts, asr, wanx, script...)
-│   ├── lib/                          # 核心算法 (pacing分镜聚合、dashscope引擎、asr)
-│   ├── types/                        # TypeScript 强类型定义
-│   └── styles/                       # 全局样式与电影质感定义
-├── studio_config.template.json       # 统一配置模板
-├── start.bat / start.ps1             # 一键启动脚本
-└── package.json
-```
-
----
-
 ## 📄 开源许可证与商业授权
 
 - **开源协议**：本项目开源版本采用 **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)** 协议。
-- **开源权益保护说明**：任何第三方基于本项目进行二次开发、修改或通过网络服务器（Web/API）向公众提供服务的衍生作品，**必须同时以 AGPL-3.0 协议开源其全部修改后的完整源代码**。
 - **商业授权 (Commercial License)**：如果您希望将本项目闭源商用、集成入企业私有商业产品或作为商业 SaaS 运营而无需开源您的专有业务代码，请联系获取专有的商业免开源许可授权。

@@ -30,7 +30,11 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
-  MessageSquareQuote
+  MessageSquareQuote,
+  ShieldCheck,
+  Zap,
+  Activity,
+  Layers
 } from 'lucide-react';
 import { Shot } from '@/types';
 
@@ -59,6 +63,15 @@ export default function StoryStudioWeb() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [showConfigDrawer, setShowConfigDrawer] = useState<boolean>(false);
   const [draftResult, setDraftResult] = useState<any>(null);
+
+  // 融合高级媒体引擎状态 (Critic / 闭环动画 / 母版直出)
+  const [animatingShotId, setAnimatingShotId] = useState<string | null>(null);
+  const [criticReviewData, setCriticReviewData] = useState<{ [shotId: string]: any }>({});
+  const [enableSpeedRamp, setEnableSpeedRamp] = useState<boolean>(true);
+  const [enableOpticalFlow, setEnableOpticalFlow] = useState<boolean>(true);
+  const [isRenderingMaster, setIsRenderingMaster] = useState<boolean>(false);
+  const [masterResult, setMasterResult] = useState<any>(null);
+  const [generatedAudioPath, setGeneratedAudioPath] = useState<string>('');
 
   // 配置项状态
   const [dashscopeApiKey, setDashscopeApiKey] = useState<string>('');
@@ -238,6 +251,7 @@ export default function StoryStudioWeb() {
       if (!ttsRes.ok) {
         throw new Error(ttsData.error || '配音合成失败');
       }
+      setGeneratedAudioPath(ttsData.audioPath);
 
       showToast('配音已生成，正在调用 Whisper 端点进行毫秒级时间戳对齐...', 'info');
 
@@ -290,6 +304,99 @@ export default function StoryStudioWeb() {
       showToast(`镜头 ${shotId} 首帧重绘成功！`, 'success');
     } catch (e: any) {
       showToast(`万相生图失败: ${e.message}`, 'error');
+    }
+  };
+
+  // 融合功能 1: 独立 Critic Agent 智能质检审核
+  const handleCriticInspect = async (shot: Shot) => {
+    showToast(`正在启动独立 Critic Agent 审核镜头 ${shot.shot_id}...`, 'info');
+    try {
+      const res = await fetch('/api/critic-inspect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shotId: shot.shot_id,
+          firstFrameUrl: shot.keyframe_image,
+          prompt: shot.i2v_prompt,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '质检执行失败');
+
+      setCriticReviewData((prev) => ({ ...prev, [shot.shot_id]: data }));
+      if (data.passed) {
+        showToast(`✅ ${shot.shot_id} 质检评分 ${data.score}分：${data.verdict}`, 'success');
+      } else {
+        showToast(`⚠️ ${shot.shot_id} 审查发现风险项，建议按意见微调`, 'error');
+      }
+    } catch (err: any) {
+      showToast(`质检失败: ${err.message}`, 'error');
+    }
+  };
+
+  // 融合功能 4: 百炼 DashScope 全自动闭环动画生成 (异步轮询直出)
+  const handleAnimateWanx = async (shot: Shot) => {
+    setAnimatingShotId(shot.shot_id);
+    showToast(`正在提交百炼 wanx2.1-i2v 任务并开启异步轮询直出...`, 'info');
+
+    try {
+      const res = await fetch('/api/animate-wanx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shotId: shot.shot_id,
+          imageUrl: shot.keyframe_image,
+          prompt: shot.i2v_prompt,
+          duration: Math.round(shot.target_duration_sec),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '百炼视频生成失败');
+
+      setShots((prev) =>
+        prev.map((s) =>
+          s.shot_id === shot.shot_id
+            ? { ...s, rendered_video_path: data.videoUrl, status: 'ready' }
+            : s
+        )
+      );
+      showToast(`🎬 ${shot.shot_id} 视频生成完毕，已自动落盘绑定！`, 'success');
+    } catch (err: any) {
+      showToast(`闭环出片失败: ${err.message}`, 'error');
+    } finally {
+      setAnimatingShotId(null);
+    }
+  };
+
+  // 融合功能 2 & 3: 纯代码 FFmpeg 直出 1080p 母版 (光流插值 + Speed Ramping)
+  const handleRenderMaster = async () => {
+    if (shots.length === 0) {
+      showToast('分镜列表为空，请先完成前置生成。', 'error');
+      return;
+    }
+    setIsRenderingMaster(true);
+    showToast('正在调用 Media Engine 执行光流补帧与 Lanczos 1080p 母版压制...', 'info');
+
+    try {
+      const res = await fetch('/api/render-master', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shots,
+          audioPath: generatedAudioPath,
+          enableSpeedRamp,
+          enableOpticalFlow,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '母版直出失败');
+
+      setMasterResult(data);
+      showToast(`🏆 1080p 动感母版已成功压制交付！`, 'success');
+    } catch (err: any) {
+      showToast(`母版渲染失败: ${err.message}`, 'error');
+    } finally {
+      setIsRenderingMaster(false);
     }
   };
 
@@ -798,9 +905,24 @@ export default function StoryStudioWeb() {
                           </div>
                           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition flex gap-1">
                             <button
+                              onClick={() => handleCriticInspect(shot)}
+                              title="启动独立 Critic 智能质检审核"
+                              className="p-1.5 rounded-lg bg-black/70 backdrop-blur hover:bg-emerald-500 hover:text-black text-emerald-400 text-xs transition"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              disabled={animatingShotId === shot.shot_id}
+                              onClick={() => handleAnimateWanx(shot)}
+                              title="百炼全自动生成视频切片 (异步轮询直出)"
+                              className="p-1.5 rounded-lg bg-black/70 backdrop-blur hover:bg-amber-500 hover:text-black text-amber-300 text-xs transition"
+                            >
+                              <Zap className={`w-3.5 h-3.5 ${animatingShotId === shot.shot_id ? 'animate-spin' : ''}`} />
+                            </button>
+                            <button
                               onClick={() => handleRegenerateWanx(shot.shot_id, shot.i2v_prompt)}
                               title="调用通义万相重新生图"
-                              className="p-1.5 rounded-lg bg-black/70 backdrop-blur hover:bg-amber-500 hover:text-black text-white text-xs transition"
+                              className="p-1.5 rounded-lg bg-black/70 backdrop-blur hover:bg-blue-500 hover:text-black text-white text-xs transition"
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
                             </button>
@@ -813,6 +935,18 @@ export default function StoryStudioWeb() {
                             </button>
                           </div>
                         </div>
+
+                        {/* Critic 质检结果微标签 */}
+                        {criticReviewData[shot.shot_id] && (
+                          <div className="p-2 rounded-lg bg-black/50 border border-white/[0.06] flex items-center justify-between text-[10px]">
+                            <span className="flex items-center gap-1 text-emerald-400">
+                              <ShieldCheck className="w-3 h-3" /> 质检评分: {criticReviewData[shot.shot_id].score}分
+                            </span>
+                            <span className="text-gray-400 font-mono">
+                              {criticReviewData[shot.shot_id].passed ? '通过' : '待优化'}
+                            </span>
+                          </div>
+                        )}
 
                         <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">
                           {shot.voiceover}
@@ -934,7 +1068,7 @@ export default function StoryStudioWeb() {
             </motion.section>
           )}
 
-          {/* STEP 4: 剪映工程装配 */}
+          {/* STEP 4: 交付面板 (双轨制：剪映草稿 + FFmpeg 光流 1080p 母版直出) */}
           {currentStep === 4 && (
             <motion.section
               key="step-4"
@@ -942,31 +1076,32 @@ export default function StoryStudioWeb() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-col gap-6"
+              className="grid grid-cols-12 gap-6"
             >
-              <div className="glass-panel rounded-2xl p-8 max-w-2xl mx-auto w-full flex flex-col gap-6">
-                <div className="text-center flex flex-col items-center gap-2">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center mb-2">
-                    <Film className="w-7 h-7" />
+              {/* 轨道 1: 剪映专业版工程导出 */}
+              <div className="col-span-12 lg:col-span-6 glass-panel rounded-2xl p-6 flex flex-col gap-5">
+                <div className="flex items-center gap-3 border-b border-brand-border pb-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+                    <Film className="w-5 h-5" />
                   </div>
-                  <h2 className="text-lg font-bold text-white">剪映专业版草稿自动装配</h2>
-                  <p className="text-xs text-gray-400 max-w-md">
-                    将真实多镜头视频片段、百炼完整音频轨与 Whisper 毫秒级字幕轨一键组装为剪映本地工程。
-                  </p>
+                  <div>
+                    <h2 className="text-sm font-bold text-white">轨道 1：剪映专业版草稿工程</h2>
+                    <p className="text-[11px] text-gray-400">导出二次微调工程，保留字幕、音轨与时间轴</p>
+                  </div>
                 </div>
 
                 <div className="bg-black/40 rounded-xl p-4 border border-white/[0.06] flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-xs font-semibold text-white">智能时长自适应 (Time Stretch / Trim)</div>
-                      <div className="text-[10px] text-gray-400">微短视频平滑慢放 (0.88x~1.0x)，超长原速截取</div>
+                      <div className="text-[10px] text-gray-400">微短视频平滑慢放，超长原速截取</div>
                     </div>
                     <input type="checkbox" defaultChecked className="accent-amber-500 w-4 h-4" />
                   </div>
                   <div className="border-t border-white/[0.06] pt-3 flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-semibold text-white">动静混剪容错 (Hybrid Image Fallback)</div>
-                      <div className="text-[10px] text-gray-400">缺视频的镜头自动用万相首帧静态图推拉垫底</div>
+                      <div className="text-xs font-semibold text-white">动静混剪容错 (Hybrid Fallback)</div>
+                      <div className="text-[10px] text-gray-400">未生成的镜头自动用首帧静态图推拉垫底</div>
                     </div>
                     <input type="checkbox" defaultChecked className="accent-amber-500 w-4 h-4" />
                   </div>
@@ -975,38 +1110,120 @@ export default function StoryStudioWeb() {
                 <button
                   disabled={isProcessing}
                   onClick={handleExportJianying}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-sm shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 transition active:scale-98 disabled:opacity-50"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-xs shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition active:scale-98 disabled:opacity-50"
                 >
                   <Sparkles className="w-4 h-4" />
-                  {isProcessing ? '正在装配草稿...' : '开始构建剪映专业版草稿'}
+                  {isProcessing ? '正在装配草稿...' : '构建剪映草稿工程'}
                 </button>
 
                 {draftResult && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="p-5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-3"
+                    className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-2.5 text-xs"
                   >
-                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
                       <CheckCircle2 className="w-4 h-4" />
                       <span>{draftResult.draftPath ? '草稿已成功写入本地剪映目录！' : '工程数据已打包保存！'}</span>
                     </div>
-                    <div className="bg-black/50 p-3 rounded-lg font-mono text-[11px] text-gray-300 break-all select-all">
+                    <div className="bg-black/50 p-2.5 rounded-lg font-mono text-[11px] text-gray-300 break-all select-all">
                       {draftResult.draftPath || draftResult.projectJsonPath}
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => showToast('已唤起本地剪映专业版！', 'success')}
-                        className="flex-1 py-2 rounded-lg bg-emerald-500 text-black font-semibold text-xs hover:bg-emerald-400 transition flex items-center justify-center gap-1.5"
+                        className="flex-1 py-1.5 rounded-lg bg-emerald-500 text-black font-semibold text-xs hover:bg-emerald-400 transition flex items-center justify-center gap-1.5"
                       >
                         <ExternalLink className="w-3.5 h-3.5" /> 在剪映中打开
                       </button>
                       <button
                         onClick={() => showToast('已在文件管理器中定位', 'info')}
-                        className="px-4 py-2 rounded-lg bg-white/[0.08] hover:bg-white/[0.12] text-xs text-white transition flex items-center gap-1.5"
+                        className="px-3 py-1.5 rounded-lg bg-white/[0.08] hover:bg-white/[0.12] text-xs text-white transition flex items-center gap-1"
                       >
-                        <Folder className="w-3.5 h-3.5" /> 打开所在目录
+                        <Folder className="w-3.5 h-3.5" /> 定位目录
                       </button>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* 轨道 2: 纯代码光流卡点 1080p 母版直出 */}
+              <div className="col-span-12 lg:col-span-6 glass-panel rounded-2xl p-6 flex flex-col gap-5 border border-amber-500/30">
+                <div className="flex items-center gap-3 border-b border-brand-border pb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-rose-500 text-black flex items-center justify-center font-bold">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                      轨道 2：动感母版直出 (Code-as-Post-Production)
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                        Pro 引擎
+                      </span>
+                    </h2>
+                    <p className="text-[11px] text-gray-400">FFmpeg 双向光流插值 (MCI) + Lanczos 1080p 升频压制</p>
+                  </div>
+                </div>
+
+                <div className="bg-black/40 rounded-xl p-4 border border-white/[0.06] flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-white">MCI 双向运动补偿光流对齐</div>
+                      <div className="text-[10px] text-gray-400">消除传统慢动作的果冻效应与快动作跳帧</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={enableOpticalFlow}
+                      onChange={(e) => setEnableOpticalFlow(e.target.checked)}
+                      className="accent-amber-500 w-4 h-4 cursor-pointer"
+                    />
+                  </div>
+                  <div className="border-t border-white/[0.06] pt-3 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-white">⚡ 非线性 Speed Ramping 动感曲线</div>
+                      <div className="text-[10px] text-gray-400">冲刺起势 ➔ 重音定格凝固 ➔ 回弹恢复</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={enableSpeedRamp}
+                      onChange={(e) => setEnableSpeedRamp(e.target.checked)}
+                      className="accent-amber-500 w-4 h-4 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  disabled={isRenderingMaster}
+                  onClick={handleRenderMaster}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-500 via-amber-500 to-amber-600 hover:from-rose-400 hover:to-amber-500 text-black font-bold text-xs shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2 transition active:scale-98 disabled:opacity-50"
+                >
+                  <Zap className={`w-4 h-4 ${isRenderingMaster ? 'animate-spin' : ''}`} />
+                  {isRenderingMaster ? '正在执行光流插值与压制 (请稍候)...' : '🚀 本地直出 1080p 动感母版'}
+                </button>
+
+                {masterResult && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2.5 text-xs"
+                  >
+                    <div className="flex items-center justify-between text-amber-400 font-bold">
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        母版渲染完成！({masterResult.clipCount} 镜头串联)
+                      </span>
+                      <span className="text-[10px] font-mono text-gray-400">{masterResult.spec}</span>
+                    </div>
+                    <div className="bg-black/50 p-2.5 rounded-lg font-mono text-[11px] text-gray-300 break-all select-all">
+                      {masterResult.masterPath}
+                    </div>
+                    <div className="flex gap-2">
+                      <a
+                        href={masterResult.masterVideoUrl}
+                        download
+                        className="flex-1 py-1.5 rounded-lg bg-amber-500 text-black font-semibold text-xs hover:bg-amber-400 transition flex items-center justify-center gap-1.5"
+                      >
+                        <Download className="w-3.5 h-3.5" /> 下载 1080p 成片
+                      </a>
                     </div>
                   </motion.div>
                 )}
