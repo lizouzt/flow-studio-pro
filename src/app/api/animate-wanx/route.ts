@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '首帧图片 URL 不能为空' }, { status: 400 });
     }
 
+    const videoModel = config.dashscope.video?.model || 'wanx2.1-i2v-plus';
+    const resolution = config.dashscope.video?.resolution || '720p';
+    const promptExtend = config.dashscope.video?.prompt_extend ?? false;
+
     // 1. 提交异步 I2V 图生视频任务至阿里云百炼
     const submitRes = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/generation', {
       method: 'POST',
@@ -27,15 +31,15 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'wanx2.1-i2v-plus',
+        model: videoModel,
         input: {
           img_url: imageUrl,
         },
         parameters: {
           prompt: prompt || 'Cinematic lighting, high quality motion, photorealistic',
           duration: Math.max(3, Math.min(10, Math.round(duration))),
-          resolution: '720p',
-          prompt_extend: false,
+          resolution,
+          prompt_extend: promptExtend,
         },
       }),
     });

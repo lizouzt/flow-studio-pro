@@ -96,6 +96,13 @@ module.exports = {
       size: ${JSON.stringify(config.dashscope?.image?.size || "720*1280")},
       style: ${JSON.stringify(config.dashscope?.image?.style || "<auto>")},
     },
+
+    // 闭环视频生成大模型 (通义万相 I2V)
+    video: {
+      model: ${JSON.stringify(config.dashscope?.video?.model || "wanx2.1-i2v-plus")},
+      resolution: ${JSON.stringify(config.dashscope?.video?.resolution || "720p")},
+      prompt_extend: ${Boolean(config.dashscope?.video?.prompt_extend ?? false)},
+    },
   },
 
   // 2. 语音识别与时间戳对齐端点 (标准 OpenAI Whisper 协议)

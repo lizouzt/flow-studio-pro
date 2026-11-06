@@ -41,6 +41,11 @@ export interface StudioConfig {
       size: string;
       style?: string;
     };
+    video?: {
+      model: string;
+      resolution: string;
+      prompt_extend: boolean;
+    };
   };
   asr: {
     provider: 'cloud_whisper' | 'dashscope_asr' | 'custom_endpoint';
