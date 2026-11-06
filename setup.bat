@@ -1,77 +1,89 @@
 @echo off
-title Flow Studio Pro - çŽ¯å¢ƒè‡ªæ£€ä¸Žä¸€é”®å®‰è£…å™¨
-chcp 65001 >nul
+title Flow Studio Pro - »·¾³×Ô¼ìÓëÒ»¼ü°²×°Æ÷
+
 echo ========================================================
-echo    ðŸŽ¬ Flow Studio Pro Â· æœ¬åœ°ä¾èµ–è‡ªåŠ¨æ£€æµ‹ä¸Žå®‰è£…å™¨
+echo    Flow Studio Pro - ±¾µØÒÀÀµ×Ô¶¯¼ì²âÓë°²×°Æ÷
 echo ========================================================
 echo.
 
-:: 1. æ£€æŸ¥ Node.js
-echo [1/4] æ£€æŸ¥ Node.js çŽ¯å¢ƒ...
+:: 1. ¼ì²é Node.js
+echo [1/4] ¼ì²é Node.js »·¾³...
 where node >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [é”™è¯¯] æœªæ£€æµ‹åˆ° Node.jsï¼Œè¯·å…ˆå‰å¾€ https://nodejs.org/ ä¸‹è½½å¹¶å®‰è£… Node.js LTS (18+ æˆ– 20+)ã€‚
-    goto END
-) else (
-    for /f "tokens=*" %%i in ('node -v') do set NODE_VER=%%i
-    echo  - Node.js å°±ç»ª: %NODE_VER%
-)
+if errorlevel 1 goto ERR_NODE
+for /f "tokens=*" %%i in ('node -v') do set NODE_VER=%%i
+echo  - Node.js ¾ÍÐ÷: %NODE_VER%
+goto CHECK_NPM
 
-:: 2. æ£€æŸ¥å¹¶å®‰è£… Node ä¾èµ–
-echo.
-echo [2/4] æ£€æŸ¥å¹¶å®‰è£…å‰ç«¯ Web ä¾èµ–åŒ… (npm install)...
-if not exist "node_modules" (
-    echo  - æ­£åœ¨å®‰è£… npm ä¾èµ–ï¼Œè¯·ç¨å€™...
-    call npm install
-) else (
-    echo  - node_modules å·²å°±ç»ªã€‚
-)
+:ERR_NODE
+echo [´íÎó] Î´¼ì²âµ½ Node.js ÃüÁî¡£
+echo ÇëÇ°Íù https://nodejs.org/ ÏÂÔØ²¢°²×° Node.js LTS [ÍÆ¼ö 18+ »ò 20+]¡£
+goto END
 
-:: 3. æ£€æŸ¥ Python ä¸Ž Python ä¾èµ– (ç”¨äºŽå‰ªæ˜ ä¸Ž Media Engine)
+:CHECK_NPM
+:: 2. ¼ì²é²¢°²×° Node ÒÀÀµ
 echo.
-echo [3/4] æ£€æŸ¥ Python è¿è¡ŒçŽ¯å¢ƒ (å¯é€‰æ’ä»¶)...
+echo [2/4] ¼ì²é²¢°²×°Ç°¶Ë Web ÒÀÀµ°ü [npm install]...
+if exist "node_modules" goto NPM_DONE
+echo  - ÕýÔÚ°²×° npm ÒÀÀµ£¬¿ÉÄÜÐèÒª 1-3 ·ÖÖÓ£¬ÇëÉÔºò...
+call npm install
+if errorlevel 1 goto ERR_NPM
+:NPM_DONE
+echo  - Web Ç°¶ËÒÀÀµÒÑ¾ÍÐ÷ [node_modules]¡£
+goto CHECK_PY
+
+:ERR_NPM
+echo.
+echo [¾¯¸æ] npm install Óöµ½´íÎó£¬Çë¼ì²éÍøÂçÁ¬½Ó»ò³¢ÊÔÊ¹ÓÃ¾µÏñÔ´ÖØÊÔ¡£
+goto CHECK_PY
+
+:CHECK_PY
+:: 3. ¼ì²é Python »·¾³
+echo.
+echo [3/4] ¼ì²é Python ÔËÐÐ»·¾³ [¿ÉÑ¡²å¼þ]...
 where python >nul 2>nul
-if %errorlevel% neq 0 (
-    echo  - [æç¤º] æœªåœ¨ç³»ç»Ÿ PATH ä¸­æ‰¾åˆ° python å‘½ä»¤ã€‚
-    echo  - åŸºç¡€ Web åŠŸèƒ½ (å†™ç¨¿/é…éŸ³/ç”Ÿå›¾/é—­çŽ¯åŠ¨ç”») å¯æ­£å¸¸ä½¿ç”¨ï¼›
-    echo  - è‹¥éœ€å¯¼å‡ºå‰ªæ˜ è‰ç¨¿æˆ–æ¯ç‰ˆç›´å‡ºï¼Œè¯·å®‰è£… Python 3.10+ å¹¶å‹¾é€‰ "Add to PATH"ã€‚
-) else (
-    for /f "tokens=*" %%i in ('python --version') do set PY_VER=%%i
-    echo  - Python å°±ç»ª: %PY_VER%
-    echo  - æ­£åœ¨å®‰è£… Python æ’ä»¶ä¾èµ– (requirements.txt)...
-    python -m pip install -r requirements.txt --quiet
-    echo  - Python æ’ä»¶ä¾èµ–å·²å®‰è£…å®Œæˆã€‚
-)
+if errorlevel 1 goto NO_PY
+for /f "tokens=*" %%i in ('python --version') do set PY_VER=%%i
+echo  - Python ¾ÍÐ÷: %PY_VER%
+if not exist "requirements.txt" goto CHECK_FFMPEG
+echo  - ÕýÔÚ¼ì²é²¢°²×° Python ²å¼þÒÀÀµ [requirements.txt]...
+python -m pip install -r requirements.txt --quiet
+echo  - Python ²å¼þÒÀÀµÒÑ°²×°Íê³É¡£
+goto CHECK_FFMPEG
 
-:: 4. æ£€æŸ¥ FFmpeg çŽ¯å¢ƒ (ç”¨äºŽå…‰æµæ’å€¼ä¸Ž 1080p æ¯ç‰ˆç›´å‡º)
+:NO_PY
+echo  - [ÌáÊ¾] Î´ÔÚÏµÍ³ PATH ÖÐÕÒµ½ python ÃüÁî¡£
+echo  - »ù´¡ Web ¹¦ÄÜ [·Ö¾µÉú³É/ÅäÒô/ÉúÍ¼/±Õ»·¶¯»­] ¾ù¿ÉÕý³£Ê¹ÓÃ¡£
+echo  - ÈôÐèµ¼³ö¼ôÓ³²Ý¸å»òÄ¸°æÖ±³ö£¬½¨Òé°²×° Python 3.10+ ²¢¹´Ñ¡ Add to PATH¡£
+goto CHECK_FFMPEG
+
+:CHECK_FFMPEG
+:: 4. ¼ì²é FFmpeg »·¾³
 echo.
-echo [4/4] æ£€æŸ¥ FFmpeg å‘½ä»¤è¡Œå·¥å…· (ç”¨äºŽæ¯ç‰ˆç›´å‡º)...
+echo [4/4] ¼ì²é FFmpeg ÃüÁîÐÐ¹¤¾ß [ÓÃÓÚÄ¸°æÖ±³ö]...
 where ffmpeg >nul 2>nul
-if %errorlevel% neq 0 (
-    echo  - [æç¤º] æœªæ£€æµ‹åˆ° ffmpeg å‘½ä»¤ã€‚
-    echo  - è‹¥éœ€ä½¿ç”¨ "ç›´å‡º 1080p åŠ¨æ„Ÿæ¯ç‰ˆ" åŠŸèƒ½ï¼Œè¯·ä¸‹è½½ FFmpeg å¹¶æ·»åŠ åˆ°ç³»ç»Ÿ PATH çŽ¯å¢ƒå˜é‡ã€‚
-    echo  - Windows å¿«é€Ÿå®‰è£…æ–¹æ³• (ä»¥ç®¡ç†å‘˜æ‰“å¼€ PowerShell æ‰§è¡Œ): winget install Gyan.FFmpeg
-) else (
-    echo  - FFmpeg å·²å°±ç»ªã€‚
-)
+if errorlevel 1 goto NO_FFMPEG
+echo  - FFmpeg ÒÑ¾ÍÐ÷¡£
+goto INIT_CONFIG
 
-:: 5. é…ç½®æ–‡ä»¶åˆå§‹åŒ–
+:NO_FFMPEG
+echo  - [ÌáÊ¾] Î´¼ì²âµ½ ffmpeg ÃüÁî¡£
+echo  - ÈôÐèÊ¹ÓÃ [Ö±³ö 1080p ¶¯¸ÐÄ¸°æ] ¹¦ÄÜ£¬ÇëÏÂÔØ FFmpeg ²¢Ìí¼Óµ½ÏµÍ³ PATH »·¾³±äÁ¿¡£
+echo  - Windows ¿ìËÙ°²×°·½·¨: ¹ÜÀíÔ±´ò¿ª PowerShell Ö´ÐÐ winget install Gyan.FFmpeg
+goto INIT_CONFIG
+
+:INIT_CONFIG
+:: 5. ÅäÖÃÎÄ¼þ³õÊ¼»¯
 echo.
-if not exist "studio_config.js" (
-    echo æ­£åœ¨ä»Žæ¨¡æ¿ç”Ÿæˆ studio_config.js é…ç½®æ–‡ä»¶...
-    copy studio_config.template.js studio_config.js >nul
-)
-if not exist ".env" (
-    if exist ".env.example" (
-        copy .env.example .env >nul
-    )
-)
+echo [ÅäÖÃ¼ì²é] ³õÊ¼»¯±¾µØÅäÖÃÎÄ¼þ...
+if not exist "studio_config.js" if exist "studio_config.template.js" copy studio_config.template.js studio_config.js >nul
+if not exist ".env" if exist ".env.example" copy .env.example .env >nul
+echo  - ÅäÖÃÎÄ¼þÒÑ¾ÍÐ÷ [studio_config.js / .env]¡£
 
 echo.
 echo ========================================================
-echo  âœ… ä¾èµ–æ£€æµ‹å®Œæ¯•ï¼
-echo  é…ç½®å¥½ studio_config.js æˆ– .env ä¸­çš„ç™¾ç‚¼ Key åŽï¼Œ
-echo  åŒå‡» start.bat å³å¯ä¸€é”®å¯åŠ¨å·¥ä½œå°ï¼
+echo  [OK] »·¾³¼ì²âÓë°²×°Á÷³Ì´¦ÀíÍê±Ï£¡
+echo  ÅäÖÃºÃ studio_config.js »ò .env ÖÐµÄ°ÙÁ¶ Key ºó£¬
+echo  Ë«»÷ start.bat ¼´¿ÉÒ»¼üÆô¶¯¹¤×÷Ì¨£¡
 echo ========================================================
 echo.
 

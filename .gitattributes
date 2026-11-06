@@ -1,0 +1,11 @@
+# Ensure batch files use CRLF and shell scripts use LF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sh text eol=lf
+
+# Ensure code files preserve LF
+*.js text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf

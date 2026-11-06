@@ -1,10 +1,12 @@
 @echo off
 title Flow Studio Pro
+
 echo ========================================================
-echo    ๐ฌ Flow Studio Pro ยท ็”ตๅฝฑๅทฅไธ็บง็ๅฎ่ง้ข‘ๆตๅทฅไฝๅฐ
+echo    Flow Studio Pro - ต็ำฐนคาตผถีๆสตสำฦตม๗นคื๗ฬจ
 echo ========================================================
 echo.
-echo ๆญฃๅจๅฏๅจ Next.js ๅ…จๆ ๅทฅไฝๅฐ (http://localhost:3000)...
+echo ีýิฺฦ๔ถฏ Next.js ศซีปนคื๗ฬจ [http://localhost:3000]...
 echo.
-npm run dev
+
+call npm run dev
 pause
