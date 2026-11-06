@@ -18,56 +18,79 @@
 
 ---
 
-## ✨ 核心融合矩阵
+## 🛠️ 本地工具与环境依赖说明
 
-- 🧠 **双模爆款口播 Writing-DNA**：通义千问驱动的“历史叙事”与“传奇人物”双写作引擎，支持从 0 到 1 自动起草全文、强化前 3 秒黄金钩子与口语化去 AI 味。
-- 🎙️ **阿里云百炼高表现力配音 (DashScope TTS)**：CosyVoice 深度融合，支持真实音色、语速调节与声波律动试听。
-- ⏱️ **云端/私有化 Whisper 毫秒级对齐**：毫秒级提取字戳与断句，自动聚合成符合短视频叙事节奏的 4~7 秒标准分镜。
-- 🛡️ **独立 Critic Agent 智能质检 (新融合)**：自动执行负向歧义词审查、首尾帧像素长宽比与透视检测，前置拦截模型乱画与穿帮风险。
-- ⚡ **百炼 DashScope 全自动闭环出片 (新融合)**：一键直调 `wanx2.1-i2v-plus` 异步轮询任务，自动下载落盘绑定视频切片，告别手动跨网页倒腾素材。
-- 🌊 **MCI 双向运动补偿光流对齐 (新融合)**：启用高级重叠块运动补偿（AOBMC），彻底消除变速拉伸时的果冻效应与快动作跳帧。
-- 🚀 **非线性 Speed Ramping 动感曲线 (新融合)**：冲刺起势 ➔ 重音停顿凝固 ➔ 回弹释放，赋予短视频大片级视觉张力。
-- 🎞️ **双轨制工程交付**：
-  - **轨道 1**：剪映专业版本地草稿工程（保留字幕与时间轴，便于二次微调）；
-  - **轨道 2**：纯代码 FFmpeg 直出 1080p Lanczos 升频动感母版（免剪映，本地一键下片）。
+Flow Studio Pro 主体为 **Next.js 纯全栈单体架构**。我们对依赖实施了**“按需解耦”**设计：
 
----
+| 依赖组件 | 必须程度 | 核心用途 | 安装方式 / 命令 |
+| :--- | :---: | :--- | :--- |
+| **Node.js 18+ 或 20+** | **必需** | 驱动整套 Next.js 生产工作台、页面渲染与 API 路由调度 | 官网下载安装：[nodejs.org](https://nodejs.org/) |
+| **Python 3.10+** | **可选插件** | 驱动 `pyJianYingDraft` 剪映草稿装配，以及首尾帧差异图质检 | 安装 Python 并执行：`pip install -r requirements.txt` |
+| **FFmpeg 5.0+** | **可选插件** | 驱动【轨道 2】的 MCI 双向光流插值、Speed Ramping 动感曲线与 1080p 母版直出 | Windows 执行：`winget install Gyan.FFmpeg`<br>macOS 执行：`brew install ffmpeg` |
 
-## 🛠️ 融合后系统架构
-
-```
-┌────────────────────────────────────────────────────────┐
-│      Next.js 14 App Router 纯全栈单体工作台             │
-│  (React 18 + TypeScript + TailwindCSS + Framer Motion) │
-└───────────────────────────┬────────────────────────────┘
-                            │
-   ┌────────────────────────┼────────────────────────┐
-   ▼                        ▼                        ▼
-【百炼 DashScope 生态】  【云端 Whisper ASR】    【Media Engine 后期引擎】
- • Qwen-plus (写作)       • 毫秒级字戳对齐       • Critic 提示词与差分质检
- • CosyVoice (配音)       • 4~7s 镜头聚合        • 双向光流插值 (MCI/AOBMC)
- • Wanx-t2i (首帧)                               • 非线性 Speed Ramping
- • Wanx2.1-i2v (闭环动画)                        • 剪映草稿 / Lanczos 1080p母版
-```
+> 💡 **提示**：即使你的机器没有安装 Python 和 FFmpeg，基础的核心流程（AI 写稿、百炼配音、Whisper 时间戳切镜、万相首帧生图、百炼闭环 I2V 视频生成）**依然 100% 能够正常运转**！
 
 ---
 
-## 🚀 快速上手
+## 🚀 极速安装与启动
 
-### 1. 安装依赖
+### 方式 1：Windows 一键全自动检测安装（推荐）
+在项目根目录下，**直接双击运行 `setup.bat`**。脚本会自动依次检测 Node.js、自动安装 npm 依赖、检测并安装 Python 插件依赖，并自动生成配置文件模板。
+
+### 方式 2：命令行手动部署
+
+#### 1. 安装前端 Web 依赖
 ```bash
-git clone <your-repo-url>
-cd story-studio-web
 npm install
 ```
 
-### 2. 启动工作台
-- **Windows 用户**：直接双击 `start.bat`
-- **命令行用户**：
+#### 2. (可选) 安装 Python 插件依赖
+如果你需要直接导出剪映草稿或使用光流直出母版：
 ```bash
-npm run dev
+pip install -r requirements.txt
 ```
+
+#### 3. 配置服务密钥（二选一）
+- **方式 A（推荐 .env 文件）**：复制 [.env.example](.env.example) 为 `.env`：
+  ```bash
+  cp .env.example .env
+  ```
+  在 `.env` 中填入你的 `DASHSCOPE_API_KEY` 与 `WHISPER_ENDPOINT_URL`。
+- **方式 B（JS 配置文件）**：直接编辑 [studio_config.js](studio_config.js)，内含极为详细的参数取值注释。
+- **方式 C（界面可视化配置）**：启动后直接在浏览器右上角点击 **设置图标 ⚙️** 进行可视化填写与保存。
+
+#### 4. 启动工作台
+- **双击脚本**：运行 `start.bat`
+- **命令行启动**：
+  ```bash
+  npm run dev
+  ```
 打开浏览器访问 [http://localhost:3000](http://localhost:3000) 即可开始创作。
+
+---
+
+## 📁 项目目录结构
+
+```text
+├── docs/                             # 架构与开发规划文档
+│   ├── ARCHITECTURE_AND_PLAN.md      # 系统全套架构设计契约
+│   ├── DEVELOPMENT_PLAN.md           # 5 大开发阶段与里程碑计划
+│   └── prototype/index.html          # 高保真独立设计原型
+├── plugins/                          # 扩展插件
+│   ├── jianying-draft/               # 剪映草稿导出插件 (export.py)
+│   └── media-engine/                 # FFmpeg 光流变速与母版压制引擎 (engine.py)
+├── src/                              # Next.js 全栈源码
+│   ├── app/                          # App Router 路由与 API (tts, asr, wanx, script...)
+│   ├── lib/                          # 核心算法 (pacing分镜聚合、dashscope引擎、asr)
+│   ├── types/                        # TypeScript 强类型定义
+│   └── styles/                       # 全局样式与电影质感定义
+├── .env.example                      # 环境变量配置模板
+├── studio_config.js                  # 带详细注释的 JS 核心配置文件
+├── requirements.txt                  # Python 扩展依赖清单
+├── setup.bat                         # 一键环境检测与依赖安装器
+├── start.bat / start.ps1             # 一键启动脚本
+└── package.json
+```
 
 ---
 
