@@ -1,0 +1,45 @@
+/**
+ * Flow Studio Pro - 全局核心配置文件模板 (studio_config.template.js)
+ * 复制此文件为 studio_config.js 并填入你的实际 API 凭据即可开箱即用。
+ */
+
+module.exports = {
+  dashscope: {
+    // 阿里云百炼 API Key (https://bailian.console.aliyun.com/)
+    api_key: process.env.DASHSCOPE_API_KEY || "",
+
+    tts: {
+      model: "cosyvoice-v1",
+      voice: "longxiaochun", // 龙小淳 (青年叙事) / 龙华 (沉稳史诗)
+      speech_rate: 1.05,
+      pitch_rate: 1.0,
+      format: "mp3",
+    },
+
+    image: {
+      model: "wanx-2.1-t2i-turbo",
+      size: "720*1280", // 9:16 短视频竖屏画幅
+      style: "<auto>",
+    },
+  },
+
+  asr: {
+    provider: "custom_whisper",
+    // 兼容 OpenAI 规范的 Whisper 端点
+    endpoint_url: process.env.WHISPER_ENDPOINT_URL || "http://127.0.0.1:8000/v1/audio/transcriptions",
+    api_key: process.env.WHISPER_API_KEY || "",
+    model: "whisper-1",
+  },
+
+  pacing: {
+    target_shot_duration_sec: 5.5, // 单镜头基准时长 (秒)
+    fallback_mode: "hybrid_image", // 缺视频时由首帧图片推拉垫底
+  },
+
+  plugins: {
+    jianying_draft: {
+      enabled: true,
+      python_path: "python", // Python 执行路径
+    },
+  },
+};
