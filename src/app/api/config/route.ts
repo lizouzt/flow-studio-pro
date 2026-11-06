@@ -11,9 +11,11 @@ export async function GET() {
         ttsModel: config.dashscope.tts.model,
         ttsVoice: config.dashscope.tts.voice,
         speechRate: config.dashscope.tts.speech_rate,
+        asrProvider: config.asr.provider || 'dashscope_asr',
+        asrDashscopeModel: config.asr.dashscope_model || 'qwen-audio-3.0-asr-flash',
         asrEndpointUrl: config.asr.endpoint_url || '',
         asrApiKey: config.asr.api_key || '',
-        asrModel: config.asr.model,
+        asrModel: config.asr.model || 'whisper-1',
         targetShotDuration: config.pacing.target_shot_duration_sec,
       }
     });
@@ -30,11 +32,20 @@ export async function POST(req: NextRequest) {
     if (body.dashscopeApiKey !== undefined) {
       config.dashscope.api_key = body.dashscopeApiKey.trim();
     }
+    if (body.asrProvider !== undefined) {
+      config.asr.provider = body.asrProvider;
+    }
+    if (body.asrDashscopeModel !== undefined) {
+      config.asr.dashscope_model = body.asrDashscopeModel.trim();
+    }
     if (body.asrEndpointUrl !== undefined) {
       config.asr.endpoint_url = body.asrEndpointUrl.trim();
     }
     if (body.asrApiKey !== undefined) {
       config.asr.api_key = body.asrApiKey.trim();
+    }
+    if (body.asrModel !== undefined) {
+      config.asr.model = body.asrModel.trim();
     }
     if (body.ttsVoice !== undefined) {
       config.dashscope.tts.voice = body.ttsVoice;

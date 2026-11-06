@@ -30,8 +30,13 @@ module.exports = {
   },
 
   asr: {
-    provider: "custom_whisper",
-    // 兼容 OpenAI 规范的 Whisper 端点
+    // 语音识别驱动模式："dashscope_asr" (百炼原生免显卡) 或 "faster_whisper" (本地 faster-whisper-server)
+    provider: process.env.ASR_PROVIDER || "dashscope_asr",
+
+    // [模式 1] 阿里云百炼 ASR 模型，默认复用 dashscope.api_key
+    dashscope_model: process.env.DASHSCOPE_ASR_MODEL || "qwen-audio-3.0-asr-flash",
+
+    // [模式 2] faster-whisper-server / OpenAI Whisper 兼容端点
     endpoint_url: process.env.WHISPER_ENDPOINT_URL || "http://127.0.0.1:8000/v1/audio/transcriptions",
     api_key: process.env.WHISPER_API_KEY || "",
     model: "whisper-1",

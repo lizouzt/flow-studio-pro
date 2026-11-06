@@ -48,10 +48,11 @@ export interface StudioConfig {
     };
   };
   asr: {
-    provider: 'cloud_whisper' | 'dashscope_asr' | 'custom_endpoint';
-    endpoint_url: string;
-    api_key: string;
-    model: string;
+    provider: 'dashscope_asr' | 'dashscope' | 'faster_whisper' | 'custom_whisper' | 'openai' | 'cloud_whisper' | 'custom_endpoint';
+    endpoint_url?: string;
+    api_key?: string;
+    model?: string;
+    dashscope_model?: string;
   };
   pacing: {
     target_shot_duration_sec: number;

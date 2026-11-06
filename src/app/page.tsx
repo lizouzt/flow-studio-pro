@@ -75,6 +75,8 @@ export default function StoryStudioWeb() {
 
   // 配置项状态
   const [dashscopeApiKey, setDashscopeApiKey] = useState<string>('');
+  const [asrProvider, setAsrProvider] = useState<'dashscope_asr' | 'faster_whisper' | 'custom_whisper'>('dashscope_asr');
+  const [asrDashscopeModel, setAsrDashscopeModel] = useState<string>('qwen-audio-3.0-asr-flash');
   const [asrEndpointUrl, setAsrEndpointUrl] = useState<string>('');
   const [asrApiKey, setAsrApiKey] = useState<string>('');
   const [isKeyConfigured, setIsKeyConfigured] = useState<boolean>(false);
@@ -86,6 +88,8 @@ export default function StoryStudioWeb() {
       .then((data) => {
         if (data.config) {
           setDashscopeApiKey(data.config.dashscopeApiKey || '');
+          if (data.config.asrProvider) setAsrProvider(data.config.asrProvider);
+          if (data.config.asrDashscopeModel) setAsrDashscopeModel(data.config.asrDashscopeModel);
           setAsrEndpointUrl(data.config.asrEndpointUrl || '');
           setAsrApiKey(data.config.asrApiKey || '');
           if (data.config.ttsVoice) setSelectedVoice(data.config.ttsVoice);
@@ -119,6 +123,8 @@ export default function StoryStudioWeb() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           dashscopeApiKey,
+          asrProvider,
+          asrDashscopeModel,
           asrEndpointUrl,
           asrApiKey,
           ttsVoice: selectedVoice,
@@ -253,7 +259,12 @@ export default function StoryStudioWeb() {
       }
       setGeneratedAudioPath(ttsData.audioPath);
 
-      showToast('配音已生成，正在调用 Whisper 端点进行毫秒级时间戳对齐...', 'info');
+      showToast(
+        asrProvider === 'dashscope_asr'
+          ? '配音已就绪，正在调用阿里云百炼 Qwen-Audio ASR 提取毫秒级时间戳...'
+          : '配音已就绪，正在连接 faster-whisper-server 提取毫秒级时间戳...',
+        'info'
+      );
 
       // 2. 请求 ASR
       const asrRes = await fetch('/api/asr', {
@@ -1276,30 +1287,75 @@ export default function StoryStudioWeb() {
                     <p className="text-[10px] text-gray-500 mt-1">用于 CosyVoice 语音大模型合成与通义万相首帧生图</p>
                   </div>
 
+                  {/* ASR 语音识别引擎驱动切换 */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 mb-1">
-                      Whisper ASR 端点 URL <span className="text-amber-400">*</span>
+                      语音识别对齐引擎 (ASR Provider)
                     </label>
-                    <input
-                      type="text"
-                      placeholder="http://127.0.0.1:8000/v1/audio/transcriptions"
-                      value={asrEndpointUrl}
-                      onChange={(e) => setAsrEndpointUrl(e.target.value)}
-                      className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
-                    />
-                    <p className="text-[10px] text-gray-500 mt-1">兼容 OpenAI 规范的云端、局域网或本地 Whisper ASR 服务端点</p>
+                    <select
+                      value={asrProvider}
+                      onChange={(e) => setAsrProvider(e.target.value as any)}
+                      className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500"
+                    >
+                      <option value="dashscope_asr">🌟 阿里云百炼原生 (qwen-audio-3.0-asr-flash · 免显卡/免部署)</option>
+                      <option value="faster_whisper">⚡ faster-whisper-server (本地/局域网私有化服务)</option>
+                      <option value="custom_whisper">🌐 自定义 OpenAI 兼容 Whisper 端点</option>
+                    </select>
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      {asrProvider === 'dashscope_asr' 
+                        ? '复用上方百炼 Key，自动通过临时存储解析毫秒级时间戳，完全无需本地显卡与额外服务。' 
+                        : '通过 OpenAI 规范 (POST /v1/audio/transcriptions) 接入本地或云端服务。'}
+                    </p>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1">Whisper API Key (可选)</label>
-                    <input
-                      type="password"
-                      placeholder="若自建服务无认证可留空"
-                      value={asrApiKey}
-                      onChange={(e) => setAsrApiKey(e.target.value)}
-                      className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
-                    />
-                  </div>
+                  {asrProvider === 'dashscope_asr' ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">
+                        百炼 ASR 模型名称
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="qwen-audio-3.0-asr-flash"
+                        value={asrDashscopeModel}
+                        onChange={(e) => setAsrDashscopeModel(e.target.value)}
+                        className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
+                      />
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        推荐：<code className="text-amber-400">qwen-audio-3.0-asr-flash</code> (高精度旗舰) 或 <code className="text-amber-400">sensevoice-v1</code> (超低延迟)
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-300 mb-1">
+                          Whisper ASR 端点 URL <span className="text-amber-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="http://127.0.0.1:8000/v1/audio/transcriptions"
+                          value={asrEndpointUrl}
+                          onChange={(e) => setAsrEndpointUrl(e.target.value)}
+                          className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
+                        />
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          本地 faster-whisper-server 默认端点通常为：http://127.0.0.1:8000/v1/audio/transcriptions
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-300 mb-1">
+                          Whisper API Key (可选)
+                        </label>
+                        <input
+                          type="password"
+                          placeholder="若本地 faster-whisper-server 无鉴权可留空"
+                          value={asrApiKey}
+                          onChange={(e) => setAsrApiKey(e.target.value)}
+                          className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 mb-1">剪映草稿导出模式</label>

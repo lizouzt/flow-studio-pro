@@ -59,11 +59,22 @@ export function getStudioConfig(): StudioConfig {
   if (process.env.DASHSCOPE_API_KEY) {
     config.dashscope.api_key = process.env.DASHSCOPE_API_KEY;
   }
+  if (process.env.ASR_PROVIDER) {
+    config.asr.provider = process.env.ASR_PROVIDER as any;
+  }
+  if (process.env.DASHSCOPE_ASR_MODEL) {
+    config.asr.dashscope_model = process.env.DASHSCOPE_ASR_MODEL;
+  }
   if (process.env.WHISPER_ENDPOINT_URL) {
     config.asr.endpoint_url = process.env.WHISPER_ENDPOINT_URL;
   }
   if (process.env.WHISPER_API_KEY) {
     config.asr.api_key = process.env.WHISPER_API_KEY;
+  }
+
+  // 若采用百炼 ASR 且未单独配置 asr.api_key，自动复用百炼主凭证
+  if (config.asr.provider === 'dashscope_asr' && !config.asr.api_key) {
+    config.asr.api_key = config.dashscope.api_key;
   }
 
   return config;
@@ -105,9 +116,15 @@ module.exports = {
     },
   },
 
-  // 2. 语音识别与时间戳对齐端点 (标准 OpenAI Whisper 协议)
+  // 2. 语音识别与时间戳对齐驱动 (支持百炼 ASR 与 faster-whisper-server)
   asr: {
-    provider: ${JSON.stringify(config.asr?.provider || "custom_whisper")},
+    // 驱动模式："dashscope_asr" (百炼原生免显卡) 或 "faster_whisper" / "custom_whisper" (本地或远程 OpenAI 兼容端点)
+    provider: ${JSON.stringify(config.asr?.provider || "dashscope_asr")},
+    
+    // 百炼 ASR 模型 (如 "qwen-audio-3.0-asr-flash" 或 "sensevoice-v1")
+    dashscope_model: ${JSON.stringify(config.asr?.dashscope_model || "qwen-audio-3.0-asr-flash")},
+
+    // faster-whisper-server / OpenAI 兼容端点配置
     endpoint_url: process.env.WHISPER_ENDPOINT_URL || ${JSON.stringify(config.asr?.endpoint_url || "http://127.0.0.1:8000/v1/audio/transcriptions")},
     api_key: process.env.WHISPER_API_KEY || ${JSON.stringify(config.asr?.api_key || "")},
     model: ${JSON.stringify(config.asr?.model || "whisper-1")},

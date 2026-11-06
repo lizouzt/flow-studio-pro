@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 import { getStudioConfig } from '@/lib/config';
-import { alignAudioWithWhisper } from '@/lib/asr';
+import { alignAudio } from '@/lib/asr';
 import { aggregateCuesToShots } from '@/lib/pacing';
 
 export async function POST(req: NextRequest) {
@@ -17,12 +17,19 @@ export async function POST(req: NextRequest) {
       ? path.resolve(process.cwd(), audioPath.replace(/^\//, ''))
       : '';
 
-    const { srtContent, cues } = await alignAudioWithWhisper(
+    const provider = config.asr?.provider || 'dashscope_asr';
+    const isDashScope = provider === 'dashscope_asr' || provider === 'dashscope';
+
+    const { srtContent, cues } = await alignAudio(
       realAudioPath,
       {
-        endpointUrl: config.asr.endpoint_url,
-        apiKey: config.asr.api_key,
-        model: config.asr.model,
+        provider,
+        endpointUrl: config.asr?.endpoint_url,
+        apiKey: config.asr?.api_key,
+        dashscopeApiKey: config.dashscope?.api_key,
+        model: isDashScope 
+          ? (config.asr?.dashscope_model || 'qwen-audio-3.0-asr-flash')
+          : (config.asr?.model || 'whisper-1'),
       }
     );
 

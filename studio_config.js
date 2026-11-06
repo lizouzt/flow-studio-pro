@@ -66,7 +66,7 @@ module.exports = {
        * 万相生图模型型号
        * 推荐："wanx-2.1-t2i-turbo" (极速高画质), "wanx-v1" (经典写实)
        */
-      model: "qwen-image-3.0",
+      model: "wanx-2.1-t2i-turbo",
 
       /**
        * 画面生成分辨率与比例
@@ -92,7 +92,7 @@ module.exports = {
        *  - "wanx2.1-i2v-plus"  : 旗舰版，运镜稳定性与物理动力学表现最佳 (推荐)
        *  - "wanx2.1-i2v-turbo" : 极速版，生成更快、成本更低
        */
-      model: "wan3.0-video",
+      model: "wanx2.1-i2v-plus",
 
       /**
        * 视频生成分辨率
@@ -109,71 +109,93 @@ module.exports = {
   },
 
   // =========================================================================
-  // 2. 语音识别与时间戳对齐端点 (ASR Alignment)
-  //    采用 OpenAI 兼容协议标准，负责提取配音毫秒级字戳并驱动镜头切分
+  // 2. 语音识别与时间戳对齐驱动 (ASR Alignment Drivers)
+  //    支持双驱动模式：
+  //    1) dashscope_asr : [强烈推荐] 阿里云百炼原生 ASR (qwen-audio-3.0-asr-flash)
+  //       - 零本地显卡门槛，免部署；
+  //       - 自动通过百炼临时存储上传音频，异步识别返回毫秒级时间戳；
+  //       - 直接复用上方 dashscope.api_key，统一结算。
+  //    2) faster_whisper / custom_whisper : 本地或远程 OpenAI Whisper 兼容服务
+  //       - 支持自建 faster-whisper-server (如 http://127.0.0.1:8000/v1/audio/transcriptions)；
+  //       - 支持纯离线私有化部署。
   // =========================================================================
   asr: {
     /**
-     * 服务提供商标识
-     * 可选："custom_whisper" (自建/云端标准端点), "openai", "dashscope_asr"
+     * 服务提供商驱动模式
+     * 可选：
+     *  - "dashscope_asr"  : [推荐] 阿里云百炼原生云端 ASR (模型：qwen-audio-3.0-asr-flash / sensevoice-v1)
+     *  - "faster_whisper" : 本地 faster-whisper-server (OpenAI 协议)
+     *  - "custom_whisper" : 自定义/第三方兼容 OpenAI Whisper 端点
      */
-    provider: "custom_whisper",
+    provider: process.env.ASR_PROVIDER || "dashscope_asr",
 
     /**
-     * [重要] 兼容 OpenAI 格式的 Whisper HTTP 接收端点
+     * [模式 1：阿里云百炼 ASR 专有配置]
+     * 官方推荐模型：
+     *  - "qwen-audio-3.0-asr-flash" : 旗舰推荐，中文识别准确率极高，自带毫秒级时间戳
+     *  - "qwen-audio-3.1-asr-flash-filetrans" : 录音文件转写增强版
+     *  - "sensevoice-v1" : 极速短语音识别
+     * 若未单独设置 api_key，将自动继承上方 dashscope.api_key
+     */
+    dashscope_model: process.env.DASHSCOPE_ASR_MODEL || "qwen-audio-3.0-asr-flash",
+
+    /**
+     * [模式 2：faster-whisper-server / OpenAI Whisper 兼容端点配置]
      * 常见方案：
-     *  - 本地/局域网部署：如 "http://127.0.0.1:8000/v1/audio/transcriptions"
-     *  - 官方或三方中转：如 "https://api.openai.com/v1/audio/transcriptions"
+     *  - 本地 faster-whisper-server : "http://127.0.0.1:8000/v1/audio/transcriptions"
+     *  - OpenAI 官方端点 : "https://api.openai.com/v1/audio/transcriptions"
      */
     endpoint_url: process.env.WHISPER_ENDPOINT_URL || "http://127.0.0.1:8000/v1/audio/transcriptions",
 
     /**
-     * 端点访问授权 Token (若自建无鉴权服务可直接留空)
+     * faster-whisper / OpenAI 端点访问鉴权 Token (若本地自建服务无鉴权可留空)
      */
     api_key: process.env.WHISPER_API_KEY || "",
 
     /**
-     * 请求的模型名称
-     * 默认："whisper-1"
+     * faster-whisper 模型名称，默认 "whisper-1"
      */
     model: "whisper-1",
   },
 
   // =========================================================================
-  // 3. 视觉分镜与时长节奏编排 (Pacing & Storyboard)
+  // 3. 视觉分镜与时长节奏编排配置 (Visual Pacing Engine)
+  //    用于将 ASR 提取的连贯台词时间戳，按电影视听语言切分为 4~7 秒动感镜头
   // =========================================================================
   pacing: {
     /**
-     * 每个镜头聚合的目标基准时长 (单位：秒)
-     * 算法将把短碎的字幕按语义合并至此区间，推荐值：4.5 ~ 7.0 秒 (最契合现代短视频完播率)
+     * 单个镜头推荐的目标基准时长 (单位：秒)
+     * 推荐值：4.5 ~ 6.0。通常 5.5 秒最符合现代短剧/短视频受众的心理注意周期
      */
     target_shot_duration_sec: 5.5,
 
     /**
-     * 当某个镜头尚未生成视频时的兜底策略
-     *  - "hybrid_image" : 动静混剪模式，自动由首帧图片添加慢推拉特效作为视频轨垫底 (推荐)
-     *  - "error"        : 严格报错中断
+     * 画面降级回退策略
+     * 可选：
+     *  - "hybrid_image" : [推荐] 当视频生成失败或显存不足时，自动采用首帧图片配合 2.5D 镜头推拉兜底
+     *  - "error"        : 严格报错终止流程
      */
     fallback_mode: "hybrid_image",
   },
 
   // =========================================================================
-  // 4. 扩展插件与本地环境 (Plugins & Post-Production)
+  // 4. 扩展插件与剪映生态集成配置 (Ecosystem Plugins)
   // =========================================================================
   plugins: {
     /**
-     * 剪映专业版草稿自动装配插件配置
+     * 剪映专业版草稿自动导出插件 (基于 pyJianYingDraft)
+     * 开启后，点击导出可直接在剪映草稿目录生成包含多轨道、画中画、字幕与音效的完整草稿
      */
     jianying_draft: {
       /**
-       * 是否启用剪映草稿导出通道
+       * 是否启用剪映导出功能
        */
       enabled: true,
 
       /**
-       * 本地 Python 解释器路径
-       * 若已配置全局环境变量可直接填 "python"，亦可指定虚拟环境绝对路径
-       * 示例："C:/Users/xxx/miniconda3/envs/flow/python.exe" 或 "python3"
+       * 本地 Python 可执行文件路径
+       * 若系统 PATH 中已包含 python，默认填 "python" 即可；
+       * 若使用特定虚拟环境，可指定绝对路径，如 "C:/Users/.../venv/Scripts/python.exe"
        */
       python_path: "python",
     },
