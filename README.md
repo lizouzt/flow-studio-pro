@@ -34,8 +34,14 @@ Flow Studio Pro 主体为 **Next.js 纯全栈单体架构**。我们对依赖实
 
 ## 🚀 极速安装与启动
 
-### 方式 1：Windows 一键全自动检测安装（推荐）
-在项目根目录下，**直接双击运行 `setup.bat`**。脚本会自动依次检测 Node.js、自动安装 npm 依赖、检测并安装 Python 插件依赖，并自动生成配置文件模板。
+### 方式 1：一键全自动检测安装（推荐）
+- **Windows 用户**：直接双击运行 **`setup.bat`**
+- **macOS / Linux 用户**：终端进入项目目录运行：
+  ```bash
+  chmod +x setup.sh start.sh
+  ./setup.sh
+  ```
+脚本会自动依次检测 Node.js、自动安装 npm 依赖、检测并安装 Python 插件依赖，并自动生成配置文件模板。
 
 ### 方式 2：命令行手动部署
 
