@@ -15,6 +15,7 @@ export interface Shot {
   srt_cues: number[];
   voiceover: string;
   keyframe_image: string;
+  remote_image_url?: string;    // 百炼公网/OSS 首帧图片链接 (专用于 I2V 图生视频直接提交)
   camera_motion: string;
   subject_action: string;
   t2i_prompt?: string;          // 专用于通义万相首帧文生图 (基于自适应视觉档案合成)

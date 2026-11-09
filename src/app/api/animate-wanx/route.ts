@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import path from 'path';
+import fs from 'fs';
 import { getStudioConfig } from '@/lib/config';
+import { uploadLocalFileToDashScopeOss } from '@/lib/dashscope';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,6 +25,33 @@ export async function POST(req: NextRequest) {
     const resolution = config.dashscope.video?.resolution || '720p';
     const promptExtend = config.dashscope.video?.prompt_extend ?? false;
 
+    // 智能解析首帧图片地址：如果是本地相对路径 (如 /output/images/shot_01.png) 或 localhost 地址，自动上传到百炼临时 OSS
+    let finalImageUrl = imageUrl.trim();
+    if (
+      !finalImageUrl.startsWith('http://') &&
+      !finalImageUrl.startsWith('https://') &&
+      !finalImageUrl.startsWith('oss://')
+    ) {
+      const cleanPath = finalImageUrl.replace(/^\//, '');
+      const localDiskPath = path.resolve(process.cwd(), cleanPath);
+      if (fs.existsSync(localDiskPath)) {
+        finalImageUrl = await uploadLocalFileToDashScopeOss(localDiskPath, apiKey, videoModel);
+      } else {
+        return NextResponse.json({ error: `找不到首帧图片本地文件: ${finalImageUrl}` }, { status: 400 });
+      }
+    } else if (finalImageUrl.includes('localhost') || finalImageUrl.includes('127.0.0.1')) {
+      try {
+        const parsedUrl = new URL(finalImageUrl);
+        const cleanPath = parsedUrl.pathname.replace(/^\//, '');
+        const localDiskPath = path.resolve(process.cwd(), cleanPath);
+        if (fs.existsSync(localDiskPath)) {
+          finalImageUrl = await uploadLocalFileToDashScopeOss(localDiskPath, apiKey, videoModel);
+        }
+      } catch (urlErr) {
+        console.warn('Failed to parse localhost url:', urlErr);
+      }
+    }
+
     // 1. 提交异步 I2V 图生视频任务至阿里云百炼
     const submitRes = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/generation', {
       method: 'POST',
@@ -33,7 +63,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: videoModel,
         input: {
-          img_url: imageUrl,
+          img_url: finalImageUrl,
         },
         parameters: {
           prompt: prompt || 'Cinematic lighting, high quality motion, photorealistic',

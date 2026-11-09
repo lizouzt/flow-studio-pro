@@ -294,7 +294,14 @@ export default function StoryStudioWeb() {
 
       setShots((prev) =>
         prev.map((s) =>
-          s.shot_id === shotId ? { ...s, keyframe_image: data.imageUrl, status: 'ready' } : s
+          s.shot_id === shotId
+            ? {
+                ...s,
+                keyframe_image: data.imageUrl,
+                remote_image_url: data.remoteUrl || data.imageUrl,
+                status: 'ready',
+              }
+            : s
         )
       );
       showToast(`镜头 ${shotId} 首帧绘制成功！`, 'success');
@@ -337,7 +344,12 @@ export default function StoryStudioWeb() {
           setShots((prev) =>
             prev.map((s) =>
               s.shot_id === targetShot.shot_id
-                ? { ...s, keyframe_image: data.imageUrl, status: 'ready' }
+                ? {
+                    ...s,
+                    keyframe_image: data.imageUrl,
+                    remote_image_url: data.remoteUrl || data.imageUrl,
+                    status: 'ready',
+                  }
                 : s
             )
           );
@@ -424,7 +436,7 @@ export default function StoryStudioWeb() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           shotId: shot.shot_id,
-          imageUrl: shot.keyframe_image,
+          imageUrl: shot.remote_image_url || shot.keyframe_image,
           prompt: shot.i2v_prompt,
           duration: Math.round(shot.target_duration_sec),
         }),

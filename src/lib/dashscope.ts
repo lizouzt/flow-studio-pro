@@ -194,3 +194,83 @@ export async function generateWanxImage(
 
   throw new Error('通义万相生图超时，请稍后重试。');
 }
+
+/**
+ * 将本地媒体文件（音频/图片/视频）上传至百炼临时 OSS 存储，换取 oss:// 协议链接
+ * 适用于 Wanx 图生视频、Qwen-Audio ASR 等需要公网/OSS 路径的百炼模型
+ */
+export async function uploadLocalFileToDashScopeOss(
+  filePath: string,
+  apiKey: string,
+  modelName: string = 'wanx2.1-i2v-plus'
+): Promise<string> {
+  const fs = await import('fs');
+  const path = await import('path');
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`待上传至百炼临时存储的文件不存在: ${filePath}`);
+  }
+
+  // 1. 获取百炼临时上传凭证
+  const policyRes = await fetch(
+    `https://dashscope.aliyuncs.com/api/v1/uploads?action=getPolicy&model=${encodeURIComponent(modelName)}`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey.trim()}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  if (!policyRes.ok) {
+    const errText = await policyRes.text();
+    throw new Error(`获取百炼临时上传策略凭据失败 (HTTP ${policyRes.status}): ${errText}`);
+  }
+
+  const policyJson = await policyRes.json();
+  const data = policyJson?.data;
+  if (!data || !data.upload_host || !data.upload_dir) {
+    throw new Error(`百炼临时上传凭据返回不完整: ${JSON.stringify(policyJson)}`);
+  }
+
+  const fileName = path.basename(filePath);
+  const objectKey = `${data.upload_dir}/${fileName}`;
+  const fileBuffer = fs.readFileSync(filePath);
+
+  const acl = data.x_oss_object_acl || 'private';
+  const forbidOverwrite = data.x_oss_forbid_overwrite || data['x_oss_forbid-overwrite'] || 'true';
+
+  // 根据文件后缀获取正确的 MIME 类型
+  const ext = path.extname(filePath).toLowerCase();
+  let mimeType = 'application/octet-stream';
+  if (ext === '.png') mimeType = 'image/png';
+  else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+  else if (ext === '.webp') mimeType = 'image/webp';
+  else if (ext === '.mp3') mimeType = 'audio/mpeg';
+  else if (ext === '.mp4') mimeType = 'video/mp4';
+
+  // 2. 构造表单数据并 POST 到临时 OSS
+  // 严格遵守阿里云 OSS PostObject 表单规则：key 首位，字段在先，file 必须在最后
+  const formData = new FormData();
+  formData.append('key', objectKey);
+  formData.append('OSSAccessKeyId', data.oss_access_key_id);
+  formData.append('policy', data.policy);
+  formData.append('Signature', data.signature);
+  formData.append('x-oss-object-acl', acl);
+  formData.append('x-oss-forbid-overwrite', forbidOverwrite);
+  formData.append('success_action_status', '200');
+  formData.append('file', new Blob([fileBuffer], { type: mimeType }), fileName);
+
+  const uploadRes = await fetch(data.upload_host, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!uploadRes.ok) {
+    const errText = await uploadRes.text();
+    throw new Error(`文件上传至百炼临时存储失败 (HTTP ${uploadRes.status}): ${errText}`);
+  }
+
+  return `oss://${objectKey}`;
+}
