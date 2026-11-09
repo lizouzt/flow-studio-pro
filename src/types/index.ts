@@ -8,7 +8,9 @@ export interface Shot {
   keyframe_image: string;
   camera_motion: string;
   subject_action: string;
-  i2v_prompt: string;
+  t2i_prompt?: string;      // 专用于通义万相首帧文生图 (中式主体/时代/服饰/环境光影)
+  i2v_prompt: string;       // 专用于通义万相视频动画 (镜头机位/人物动力学微动)
+  character_anchor?: string;// 全局角色特征锚点 (确保多镜头人设一致性)
   rendered_video_path?: string;
   status: 'pending' | 'generating' | 'ready' | 'fallback_image';
 }

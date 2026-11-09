@@ -12,7 +12,7 @@ import {
   Sparkles,
   Loader2,
   Palette,
-  Image as ImageIcon,
+  Wand2,
 } from 'lucide-react';
 import { Shot } from '@/types';
 
@@ -22,12 +22,14 @@ interface StoryboardStepProps {
   generatingImageShotId?: string | null;
   isBatchGeneratingImages?: boolean;
   batchProgress?: { current: number; total: number } | null;
+  isPolishingPrompts?: boolean;
   criticReviewData: { [shotId: string]: any };
   onGoToScript: () => void;
   onCriticInspect: (shot: Shot) => void;
   onAnimateWanx: (shot: Shot) => void;
   onRegenerateWanx: (shotId: string, prompt: string) => void;
   onBatchGenerateWanx?: () => void;
+  onPolishVisualPrompts?: () => void;
   onReplaceLocalImage: () => void;
   onDownloadAllImages: () => void;
   onCopyPrompt: (prompt: string) => void;
@@ -39,17 +41,20 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
   generatingImageShotId,
   isBatchGeneratingImages = false,
   batchProgress,
+  isPolishingPrompts = false,
   criticReviewData,
   onGoToScript,
   onCriticInspect,
   onAnimateWanx,
   onRegenerateWanx,
   onBatchGenerateWanx,
+  onPolishVisualPrompts,
   onReplaceLocalImage,
   onDownloadAllImages,
   onCopyPrompt,
 }) => {
   const [imageErrors, setImageErrors] = useState<{ [shotId: string]: boolean }>({});
+  const [activePromptTabs, setActivePromptTabs] = useState<{ [shotId: string]: 't2i' | 'i2v' }>({});
 
   if (shots.length === 0) {
     return (
@@ -85,14 +90,25 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
             </span>
           </div>
           <span className="text-xs text-gray-400">
-            画风：<b className="text-gray-200">厚涂历史漫画风 (Historical Comic)</b>
+            视觉基准：<b className="text-amber-300">厚涂中国历史古典风 (Song Dynasty Historic)</b>
           </span>
         </div>
 
         <div className="flex items-center gap-3">
+          {onPolishVisualPrompts && (
+            <button
+              disabled={isPolishingPrompts}
+              onClick={onPolishVisualPrompts}
+              className="px-3.5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs text-amber-300 border border-amber-500/20 flex items-center gap-1.5 transition disabled:opacity-50"
+            >
+              <Wand2 className={`w-3.5 h-3.5 ${isPolishingPrompts ? 'animate-spin' : ''}`} />
+              <span>{isPolishingPrompts ? '视觉导演重塑中...' : '✨ AI 重塑国风分镜'}</span>
+            </button>
+          )}
+
           {onBatchGenerateWanx && (
             <button
-              disabled={isBatchGeneratingImages}
+              disabled={isBatchGeneratingImages || isPolishingPrompts}
               onClick={onBatchGenerateWanx}
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-xs font-bold flex items-center gap-2 shadow-md shadow-amber-500/10 transition disabled:opacity-50"
             >
@@ -126,6 +142,9 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
         {shots.map((shot) => {
           const isGeneratingImg = generatingImageShotId === shot.shot_id;
           const hasImage = Boolean(shot.keyframe_image) && !imageErrors[shot.shot_id];
+          const activeTab = activePromptTabs[shot.shot_id] || 't2i';
+          const displayedPrompt = activeTab === 't2i' ? (shot.t2i_prompt || shot.i2v_prompt) : shot.i2v_prompt;
+          const currentT2i = shot.t2i_prompt || shot.i2v_prompt;
 
           return (
             <div
@@ -149,7 +168,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                     </div>
                     <span className="text-xs font-semibold text-amber-300">通义万相正在生图...</span>
                     <span className="text-[10px] text-gray-400 mt-1 max-w-[160px] line-clamp-2">
-                      Wanx 2.1 正在绘制 720x1280 竖屏首帧
+                      Wanx 2.1 正在绘制南宋国风 720x1280 首帧
                     </span>
                   </div>
                 ) : hasImage ? (
@@ -179,7 +198,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                     </span>
                     <button
                       disabled={isBatchGeneratingImages || isGeneratingImg}
-                      onClick={() => onRegenerateWanx(shot.shot_id, shot.i2v_prompt)}
+                      onClick={() => onRegenerateWanx(shot.shot_id, currentT2i)}
                       className="mt-3 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/10 hover:scale-[1.02] transition disabled:opacity-50"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
@@ -212,7 +231,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                   </button>
                   <button
                     disabled={isGeneratingImg}
-                    onClick={() => onRegenerateWanx(shot.shot_id, shot.i2v_prompt)}
+                    onClick={() => onRegenerateWanx(shot.shot_id, currentT2i)}
                     title="调用通义万相重新生图"
                     className="p-1.5 rounded-lg bg-black/70 backdrop-blur hover:bg-blue-500 hover:text-black text-white text-xs transition"
                   >
@@ -244,18 +263,40 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                 {shot.voiceover}
               </p>
 
-              <div className="bg-black/40 rounded-xl p-2.5 border border-white/[0.06] flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-[10px] text-gray-400">
-                  <span>I2V 动力学 Prompt</span>
+              {/* 智能提示词面板 (双标签切换：首帧美术描述 vs 运镜指令) */}
+              <div className="bg-black/40 rounded-xl p-2.5 border border-white/[0.06] flex flex-col gap-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <div className="flex items-center gap-1 bg-white/[0.04] p-0.5 rounded-lg border border-white/[0.05]">
+                    <button
+                      onClick={() => setActivePromptTabs((prev) => ({ ...prev, [shot.shot_id]: 't2i' }))}
+                      className={`px-2 py-0.5 rounded font-medium transition ${
+                        activeTab === 't2i'
+                          ? 'bg-amber-500/20 text-amber-300 font-semibold'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      🎨 首帧画面 (T2I)
+                    </button>
+                    <button
+                      onClick={() => setActivePromptTabs((prev) => ({ ...prev, [shot.shot_id]: 'i2v' }))}
+                      className={`px-2 py-0.5 rounded font-medium transition ${
+                        activeTab === 'i2v'
+                          ? 'bg-amber-500/20 text-amber-300 font-semibold'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      🎥 运镜动势 (I2V)
+                    </button>
+                  </div>
                   <button
-                    onClick={() => onCopyPrompt(shot.i2v_prompt)}
-                    className="hover:text-amber-400 flex items-center gap-1 transition"
+                    onClick={() => onCopyPrompt(displayedPrompt)}
+                    className="hover:text-amber-400 text-gray-400 flex items-center gap-1 transition"
                   >
                     <Copy className="w-3 h-3" /> 复制
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-400 font-mono line-clamp-2">
-                  {shot.i2v_prompt}
+                <p className="text-[10px] text-gray-300/90 leading-relaxed font-sans line-clamp-3">
+                  {displayedPrompt}
                 </p>
               </div>
             </div>

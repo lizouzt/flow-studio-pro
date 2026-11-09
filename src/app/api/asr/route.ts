@@ -4,6 +4,7 @@ import fs from 'fs';
 import { getStudioConfig } from '@/lib/config';
 import { alignAudio } from '@/lib/asr';
 import { aggregateCuesToShots } from '@/lib/pacing';
+import { enrichShotsWithVisualDirector } from '@/lib/visualDirector';
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,11 +41,15 @@ export async function POST(req: NextRequest) {
     fs.writeFileSync(srtFile, srtContent, 'utf-8');
 
     // 智能聚合成 4~7s 镜头单元
-    const shots = aggregateCuesToShots(
+    const rawShots = aggregateCuesToShots(
       cues, 
       config.pacing.target_shot_duration_sec || 5.5,
       styleId || 'Historical Comic'
     );
+
+    // 视觉导演 Agent：针对解说词语义深度注入南宋历史与中式人物美术提示词
+    const apiKey = config.dashscope?.api_key || '';
+    const shots = await enrichShotsWithVisualDirector(rawShots, apiKey, text);
 
     return NextResponse.json({
       success: true,

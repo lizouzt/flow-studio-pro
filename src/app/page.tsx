@@ -45,6 +45,7 @@ export default function StoryStudioWeb() {
   const [generatingImageShotId, setGeneratingImageShotId] = useState<string | null>(null);
   const [isBatchGeneratingImages, setIsBatchGeneratingImages] = useState<boolean>(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isPolishingPrompts, setIsPolishingPrompts] = useState<boolean>(false);
   const [criticReviewData, setCriticReviewData] = useState<{ [shotId: string]: any }>({});
   const [enableSpeedRamp, setEnableSpeedRamp] = useState<boolean>(true);
   const [enableOpticalFlow, setEnableOpticalFlow] = useState<boolean>(true);
@@ -321,10 +322,11 @@ export default function StoryStudioWeb() {
       setGeneratingImageShotId(targetShot.shot_id);
 
       try {
+        const promptToUse = targetShot.t2i_prompt || targetShot.i2v_prompt;
         const res = await fetch('/api/wanx', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: targetShot.i2v_prompt, shotId: targetShot.shot_id }),
+          body: JSON.stringify({ prompt: promptToUse, shotId: targetShot.shot_id }),
         });
         const data = await res.json();
         if (res.ok && data.imageUrl) {
@@ -346,6 +348,35 @@ export default function StoryStudioWeb() {
     setIsBatchGeneratingImages(false);
     setBatchProgress(null);
     showToast(`✨ 批量首帧绘制完成！成功生成 ${successCount}/${targetShots.length} 镜`, 'success');
+  };
+
+  // 视觉导演 Agent：为当前分镜重塑南宋历史与中式人物首帧提示词
+  const handlePolishVisualPrompts = async () => {
+    if (!shots || shots.length === 0) {
+      showToast('当前暂无分镜单元！', 'error');
+      return;
+    }
+    setIsPolishingPrompts(true);
+    showToast('正在启动视觉导演 Agent，根据解说词语义深度重塑南宋国风分镜...', 'info');
+
+    try {
+      const res = await fetch('/api/visual-director', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shots, topic: writingTopic }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '视觉导演重塑失败');
+
+      if (data.shots && data.shots.length > 0) {
+        setShots(data.shots);
+        showToast('✨ 视觉导演重塑完成！已注入宋代名将铠甲、战马与历史光影提示词', 'success');
+      }
+    } catch (err: any) {
+      showToast(`视觉导演执行异常: ${err.message}`, 'error');
+    } finally {
+      setIsPolishingPrompts(false);
+    }
   };
 
   // 融合功能 1: 独立 Critic Agent 智能质检审核
@@ -577,12 +608,14 @@ export default function StoryStudioWeb() {
                 generatingImageShotId={generatingImageShotId}
                 isBatchGeneratingImages={isBatchGeneratingImages}
                 batchProgress={batchProgress}
+                isPolishingPrompts={isPolishingPrompts}
                 criticReviewData={criticReviewData}
                 onGoToScript={() => setCurrentStep(1)}
                 onCriticInspect={handleCriticInspect}
                 onAnimateWanx={handleAnimateWanx}
                 onRegenerateWanx={handleRegenerateWanx}
                 onBatchGenerateWanx={handleBatchGenerateWanx}
+                onPolishVisualPrompts={handlePolishVisualPrompts}
                 onReplaceLocalImage={() => showToast('已选择本地图片替换', 'info')}
                 onDownloadAllImages={() => showToast('已打包所有首帧高清图 (ZIP)！', 'success')}
                 onCopyPrompt={copyToClipboard}

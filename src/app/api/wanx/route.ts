@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { getStudioConfig } from '@/lib/config';
 import { generateWanxImage } from '@/lib/dashscope';
+import { applyCulturalGuardrail } from '@/lib/visualDirector';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,9 +12,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
+    // 文化防偏网：强制注入中式古典历史正向锚点与中世纪欧洲负向排除
+    const guardedPrompt = applyCulturalGuardrail(prompt);
+
     const config = getStudioConfig();
     const remoteImageUrl = await generateWanxImage(
-      prompt,
+      guardedPrompt,
       config.dashscope.api_key,
       config.dashscope.image.model,
       config.dashscope.image.size

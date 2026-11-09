@@ -1,4 +1,5 @@
 import { Shot } from '@/types';
+import { generateDefaultChineseHistoricalPrompt } from './visualDirector';
 
 export interface SrtCue {
   id: number;
@@ -104,6 +105,9 @@ export function aggregateCuesToShots(
         initialKeyframe = '';
       }
 
+      const cameraMotionDesc = `${motion.camera_zh} (${motion.type})`;
+      const defaultT2iPrompt = generateDefaultChineseHistoricalPrompt(combinedVoiceover, shotIndex, cameraMotionDesc);
+
       const shot: Shot = {
         shot_id: shotId,
         target_start_sec: Number(shotStart.toFixed(2)),
@@ -112,9 +116,11 @@ export function aggregateCuesToShots(
         srt_cues: currentCues.map(c => c.id),
         voiceover: combinedVoiceover,
         keyframe_image: initialKeyframe,
-        camera_motion: `${motion.camera_zh} (${motion.type})`,
+        camera_motion: cameraMotionDesc,
         subject_action: motion.action_en,
+        t2i_prompt: defaultT2iPrompt,
         i2v_prompt: `${motion.camera_en}. The subject in the reference image performs ${motion.action_en}, cinematic ${styleName}, photorealistic, dramatic lighting, 24fps, high quality`,
+        character_anchor: '南宋青年将领辛弃疾，东亚面孔，身披宋代传统铠甲战袍',
         rendered_video_path: `/output/videos/${shotId}.mp4`,
         status: initialKeyframe ? 'ready' : 'pending'
       };
