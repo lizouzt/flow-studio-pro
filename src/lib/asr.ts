@@ -23,7 +23,11 @@ export async function alignAudio(
 
   if (isDashScope) {
     const key = options.dashscopeApiKey || options.apiKey || '';
-    const model = options.model || 'qwen-audio-3.0-asr-flash';
+    const rawModel = options.model || 'qwen-audio-3.1-asr-flash-filetrans';
+    // 智能映射非实时文件转写官方旗舰模型
+    const model = (rawModel === 'qwen-audio-3.0-asr-flash' || rawModel === 'sensevoice-v1')
+      ? 'qwen-audio-3.1-asr-flash-filetrans'
+      : rawModel;
     return alignAudioWithDashScope(audioFilePath, { apiKey: key, model });
   }
 
@@ -58,7 +62,10 @@ export async function alignAudioWithDashScope(
     }
   }
 
-  const model = options.model || 'qwen-audio-3.0-asr-flash';
+  let model = options.model || 'qwen-audio-3.1-asr-flash-filetrans';
+  if (model === 'qwen-audio-3.0-asr-flash' || model === 'sensevoice-v1') {
+    model = 'qwen-audio-3.1-asr-flash-filetrans';
+  }
 
   // 1. 如果是本地音频文件，先上传至百炼临时存储获取 oss:// 地址
   let fileUrl = audioFilePath;
@@ -177,7 +184,7 @@ export async function alignAudioWithDashScope(
 async function uploadLocalFileToDashScopeOss(
   filePath: string,
   apiKey: string,
-  modelName: string = 'qwen-audio-3.0-asr-flash'
+  modelName: string = 'qwen-audio-3.1-asr-flash-filetrans'
 ): Promise<string> {
   const fs = await import('fs');
   const path = await import('path');
@@ -209,20 +216,21 @@ async function uploadLocalFileToDashScopeOss(
   const objectKey = `${data.upload_dir}/${fileName}`;
   const fileBuffer = fs.readFileSync(filePath);
 
+  // 提取必须字段，注意百炼接口返回的是下划线 x_oss_forbid_overwrite
+  const acl = data.x_oss_object_acl || 'private';
+  const forbidOverwrite = data.x_oss_forbid_overwrite || data['x_oss_forbid-overwrite'] || 'true';
+
   // 2. 构造表单数据并 POST 到临时 OSS
+  // 严格遵守阿里云 OSS PostObject 表单规则：key 首位，字段在先，file 必须在最后
   const formData = new FormData();
-  formData.append('OSSAccessKeyId', data.oss_access_key_id);
-  formData.append('Signature', data.signature);
-  formData.append('policy', data.policy);
-  if (data.x_oss_object_acl) {
-    formData.append('x-oss-object-acl', data.x_oss_object_acl);
-  }
-  if (data['x_oss_forbid-overwrite']) {
-    formData.append('x-oss-forbid-overwrite', data['x_oss_forbid-overwrite']);
-  }
   formData.append('key', objectKey);
+  formData.append('OSSAccessKeyId', data.oss_access_key_id);
+  formData.append('policy', data.policy);
+  formData.append('Signature', data.signature);
+  formData.append('x-oss-object-acl', acl);
+  formData.append('x-oss-forbid-overwrite', forbidOverwrite);
   formData.append('success_action_status', '200');
-  formData.append('file', new Blob([fileBuffer]), fileName);
+  formData.append('file', new Blob([fileBuffer], { type: 'audio/mpeg' }), fileName);
 
   const uploadRes = await fetch(data.upload_host, {
     method: 'POST',

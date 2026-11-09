@@ -76,7 +76,7 @@ export default function StoryStudioWeb() {
   // 配置项状态
   const [dashscopeApiKey, setDashscopeApiKey] = useState<string>('');
   const [asrProvider, setAsrProvider] = useState<'dashscope_asr' | 'faster_whisper' | 'custom_whisper'>('dashscope_asr');
-  const [asrDashscopeModel, setAsrDashscopeModel] = useState<string>('qwen-audio-3.0-asr-flash');
+  const [asrDashscopeModel, setAsrDashscopeModel] = useState<string>('qwen-audio-3.1-asr-flash-filetrans');
   const [asrEndpointUrl, setAsrEndpointUrl] = useState<string>('');
   const [asrApiKey, setAsrApiKey] = useState<string>('');
   const [isKeyConfigured, setIsKeyConfigured] = useState<boolean>(false);
@@ -1315,13 +1315,13 @@ export default function StoryStudioWeb() {
                       </label>
                       <input
                         type="text"
-                        placeholder="qwen-audio-3.0-asr-flash"
+                        placeholder="qwen-audio-3.1-asr-flash-filetrans"
                         value={asrDashscopeModel}
                         onChange={(e) => setAsrDashscopeModel(e.target.value)}
                         className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
                       />
                       <p className="text-[10px] text-gray-500 mt-1">
-                        推荐：<code className="text-amber-400">qwen-audio-3.0-asr-flash</code> (高精度旗舰) 或 <code className="text-amber-400">sensevoice-v1</code> (超低延迟)
+                        推荐：<code className="text-amber-400">qwen-audio-3.1-asr-flash-filetrans</code> (官方旗舰非实时转写) 或 <code className="text-amber-400">paraformer-v2</code>
                       </p>
                     </div>
                   ) : (

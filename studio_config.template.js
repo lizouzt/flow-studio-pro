@@ -34,7 +34,7 @@ module.exports = {
     provider: process.env.ASR_PROVIDER || "dashscope_asr",
 
     // [模式 1] 阿里云百炼 ASR 模型，默认复用 dashscope.api_key
-    dashscope_model: process.env.DASHSCOPE_ASR_MODEL || "qwen-audio-3.0-asr-flash",
+    dashscope_model: process.env.DASHSCOPE_ASR_MODEL || "qwen-audio-3.1-asr-flash-filetrans",
 
     // [模式 2] faster-whisper-server / OpenAI Whisper 兼容端点
     endpoint_url: process.env.WHISPER_ENDPOINT_URL || "http://127.0.0.1:8000/v1/audio/transcriptions",

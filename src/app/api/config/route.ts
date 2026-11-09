@@ -12,7 +12,7 @@ export async function GET() {
         ttsVoice: config.dashscope.tts.voice,
         speechRate: config.dashscope.tts.speech_rate,
         asrProvider: config.asr.provider || 'dashscope_asr',
-        asrDashscopeModel: config.asr.dashscope_model || 'qwen-audio-3.0-asr-flash',
+        asrDashscopeModel: config.asr.dashscope_model || 'qwen-audio-3.1-asr-flash-filetrans',
         asrEndpointUrl: config.asr.endpoint_url || '',
         asrApiKey: config.asr.api_key || '',
         asrModel: config.asr.model || 'whisper-1',

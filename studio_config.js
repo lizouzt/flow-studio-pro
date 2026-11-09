@@ -133,12 +133,11 @@ module.exports = {
     /**
      * [模式 1：阿里云百炼 ASR 专有配置]
      * 官方推荐模型：
-     *  - "qwen-audio-3.0-asr-flash" : 旗舰推荐，中文识别准确率极高，自带毫秒级时间戳
-     *  - "qwen-audio-3.1-asr-flash-filetrans" : 录音文件转写增强版
-     *  - "sensevoice-v1" : 极速短语音识别
+     *  - "qwen-audio-3.1-asr-flash-filetrans" : [推荐] 官方旗舰非实时录音转写大模型，中文识别准确率极高，自带毫秒级时间戳
+     *  - "paraformer-v2" : 经典高稳定性语音识别模型
      * 若未单独设置 api_key，将自动继承上方 dashscope.api_key
      */
-    dashscope_model: process.env.DASHSCOPE_ASR_MODEL || "qwen-audio-3.0-asr-flash",
+    dashscope_model: process.env.DASHSCOPE_ASR_MODEL || "qwen-audio-3.1-asr-flash-filetrans",
 
     /**
      * [模式 2：faster-whisper-server / OpenAI Whisper 兼容端点配置]
