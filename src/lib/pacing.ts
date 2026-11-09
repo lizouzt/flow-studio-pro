@@ -91,6 +91,19 @@ export function aggregateCuesToShots(
       const combinedVoiceover = currentCues.map(c => c.text).join(' ');
       const shotId = `shot_${String(shotIndex).padStart(2, '0')}`;
       
+      // 检查本地是否已有历史已生成首帧图，避免产生 404
+      let initialKeyframe = '';
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const candidate = path.resolve(process.cwd(), 'output', 'images', `${shotId}.png`);
+        if (fs.existsSync(candidate)) {
+          initialKeyframe = `/output/images/${shotId}.png`;
+        }
+      } catch {
+        initialKeyframe = '';
+      }
+
       const shot: Shot = {
         shot_id: shotId,
         target_start_sec: Number(shotStart.toFixed(2)),
@@ -98,12 +111,12 @@ export function aggregateCuesToShots(
         target_duration_sec: Number((cue.end_sec - shotStart).toFixed(2)),
         srt_cues: currentCues.map(c => c.id),
         voiceover: combinedVoiceover,
-        keyframe_image: `/output/images/${shotId}.png`,
+        keyframe_image: initialKeyframe,
         camera_motion: `${motion.camera_zh} (${motion.type})`,
         subject_action: motion.action_en,
         i2v_prompt: `${motion.camera_en}. The subject in the reference image performs ${motion.action_en}, cinematic ${styleName}, photorealistic, dramatic lighting, 24fps, high quality`,
         rendered_video_path: `/output/videos/${shotId}.mp4`,
-        status: 'pending'
+        status: initialKeyframe ? 'ready' : 'pending'
       };
 
       shots.push(shot);

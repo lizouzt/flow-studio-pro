@@ -42,6 +42,9 @@ export default function StoryStudioWeb() {
 
   // 融合高级媒体引擎状态 (Critic / 闭环动画 / 母版直出)
   const [animatingShotId, setAnimatingShotId] = useState<string | null>(null);
+  const [generatingImageShotId, setGeneratingImageShotId] = useState<string | null>(null);
+  const [isBatchGeneratingImages, setIsBatchGeneratingImages] = useState<boolean>(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [criticReviewData, setCriticReviewData] = useState<{ [shotId: string]: any }>({});
   const [enableSpeedRamp, setEnableSpeedRamp] = useState<boolean>(true);
   const [enableOpticalFlow, setEnableOpticalFlow] = useState<boolean>(true);
@@ -273,6 +276,7 @@ export default function StoryStudioWeb() {
 
   // 2. 真实调用通义万相重新生图
   const handleRegenerateWanx = async (shotId: string, prompt: string) => {
+    setGeneratingImageShotId(shotId);
     showToast(`正在调用通义万相绘制 ${shotId} 首帧...`, 'info');
     try {
       const res = await fetch('/api/wanx', {
@@ -288,10 +292,60 @@ export default function StoryStudioWeb() {
           s.shot_id === shotId ? { ...s, keyframe_image: data.imageUrl, status: 'ready' } : s
         )
       );
-      showToast(`镜头 ${shotId} 首帧重绘成功！`, 'success');
+      showToast(`镜头 ${shotId} 首帧绘制成功！`, 'success');
     } catch (e: any) {
       showToast(`万相生图失败: ${e.message}`, 'error');
+    } finally {
+      setGeneratingImageShotId(null);
     }
+  };
+
+  // 一键批量生成全部分镜首帧 (通义万相)
+  const handleBatchGenerateWanx = async () => {
+    if (!shots || shots.length === 0) {
+      showToast('当前暂无分镜单元！', 'error');
+      return;
+    }
+
+    const pendingShots = shots.filter((s) => !s.keyframe_image || s.status === 'pending');
+    const targetShots = pendingShots.length > 0 ? pendingShots : shots;
+
+    setIsBatchGeneratingImages(true);
+    setBatchProgress({ current: 0, total: targetShots.length });
+    showToast(`🎨 开始批量绘制 ${targetShots.length} 个分镜首帧，请稍候...`, 'info');
+
+    let successCount = 0;
+    for (let i = 0; i < targetShots.length; i++) {
+      const targetShot = targetShots[i];
+      setBatchProgress({ current: i + 1, total: targetShots.length });
+      setGeneratingImageShotId(targetShot.shot_id);
+
+      try {
+        const res = await fetch('/api/wanx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: targetShot.i2v_prompt, shotId: targetShot.shot_id }),
+        });
+        const data = await res.json();
+        if (res.ok && data.imageUrl) {
+          setShots((prev) =>
+            prev.map((s) =>
+              s.shot_id === targetShot.shot_id
+                ? { ...s, keyframe_image: data.imageUrl, status: 'ready' }
+                : s
+            )
+          );
+          successCount++;
+        }
+      } catch (err: any) {
+        console.warn(`Shot ${targetShot.shot_id} wanx generation error:`, err);
+      }
+    }
+
+    setGeneratingImageShotId(null);
+    setIsBatchGeneratingImages(false);
+    setBatchProgress(null);
+    showToast(`✨ 批量首帧绘制完成！成功生成 ${successCount}/${targetShots.length} 镜`, 'success');
   };
 
   // 融合功能 1: 独立 Critic Agent 智能质检审核
@@ -520,11 +574,15 @@ export default function StoryStudioWeb() {
               <StoryboardStep
                 shots={shots}
                 animatingShotId={animatingShotId}
+                generatingImageShotId={generatingImageShotId}
+                isBatchGeneratingImages={isBatchGeneratingImages}
+                batchProgress={batchProgress}
                 criticReviewData={criticReviewData}
                 onGoToScript={() => setCurrentStep(1)}
                 onCriticInspect={handleCriticInspect}
                 onAnimateWanx={handleAnimateWanx}
                 onRegenerateWanx={handleRegenerateWanx}
+                onBatchGenerateWanx={handleBatchGenerateWanx}
                 onReplaceLocalImage={() => showToast('已选择本地图片替换', 'info')}
                 onDownloadAllImages={() => showToast('已打包所有首帧高清图 (ZIP)！', 'success')}
                 onCopyPrompt={copyToClipboard}

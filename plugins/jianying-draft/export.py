@@ -22,6 +22,17 @@ def get_media_duration_sec(path: str) -> float:
         print(f"Warning: failed to read video duration via pymediainfo: {e}", file=sys.stderr)
     return 0.0
 
+def resolve_media_path(path_str: str | None) -> str | None:
+    if not path_str or not isinstance(path_str, str):
+        return None
+    if os.path.exists(path_str):
+        return os.path.abspath(path_str)
+    # Check relative to current working directory stripping leading slashes
+    clean_p = path_str.lstrip("/\\")
+    if os.path.exists(clean_p):
+        return os.path.abspath(clean_p)
+    return None
+
 def export_draft(project_json_path: str, output_drafts_dir: str | None = None) -> str:
     import pyJianYingDraft as draft
     from pyJianYingDraft import Draft, Video_segment, Audio_segment
@@ -30,8 +41,8 @@ def export_draft(project_json_path: str, output_drafts_dir: str | None = None) -
         project = json.load(f)
 
     project_name = project.get("project_name", "StoryStudio_Draft")
-    audio_path = project.get("audio_path")
-    srt_path = project.get("srt_path")
+    audio_path = resolve_media_path(project.get("audio_path"))
+    srt_path = resolve_media_path(project.get("srt_path"))
     shots = project.get("shots", [])
 
     if not output_drafts_dir:
@@ -52,8 +63,8 @@ def export_draft(project_json_path: str, output_drafts_dir: str | None = None) -
 
     for shot in shots:
         shot_id = shot.get("shot_id", "shot")
-        v_path = shot.get("rendered_video_path")
-        img_path = shot.get("keyframe_image")
+        v_path = resolve_media_path(shot.get("rendered_video_path"))
+        img_path = resolve_media_path(shot.get("keyframe_image"))
         target_dur_sec = float(shot.get("target_duration_sec", 5.0))
         target_dur_us = int(round(target_dur_sec * MICROSECOND))
 
