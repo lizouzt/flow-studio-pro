@@ -3,17 +3,17 @@ import path from 'path';
 import fs from 'fs';
 import { getStudioConfig } from '@/lib/config';
 import { generateWanxImage } from '@/lib/dashscope';
-import { applyCulturalGuardrail } from '@/lib/visualDirector';
+import { applyAdaptiveGuardrail } from '@/lib/visualDirector';
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, shotId } = await req.json();
+    const { prompt, shotId, visualProfile } = await req.json();
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    // 文化防偏网：强制注入中式古典历史正向锚点与中世纪欧洲负向排除
-    const guardedPrompt = applyCulturalGuardrail(prompt);
+    // 自适应防偏网：根据当前提取出的视觉档案自适应注入正向特征与时代冲突负向排除
+    const guardedPrompt = applyAdaptiveGuardrail(prompt, visualProfile);
 
     const config = getStudioConfig();
     const remoteImageUrl = await generateWanxImage(

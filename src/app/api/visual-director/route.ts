@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStudioConfig } from '@/lib/config';
-import { enrichShotsWithVisualDirector } from '@/lib/visualDirector';
+import { analyzeVisualContext, enrichShotsWithAdaptiveVisualDirector } from '@/lib/visualDirector';
 
 export async function POST(req: NextRequest) {
   try {
-    const { shots, topic } = await req.json();
+    const { shots, topic = '', script = '', customProfile } = await req.json();
     if (!shots || !Array.isArray(shots)) {
       return NextResponse.json({ error: '分镜列表不能为空' }, { status: 400 });
     }
@@ -12,13 +12,24 @@ export async function POST(req: NextRequest) {
     const config = getStudioConfig();
     const apiKey = config.dashscope?.api_key || '';
 
-    const enrichedShots = await enrichShotsWithVisualDirector(shots, apiKey, topic);
+    // 自适应提取视觉世界观设定档案
+    const visualProfile = customProfile || (await analyzeVisualContext(script, topic, apiKey));
+
+    // 基于提取的世界观档案为各镜头生成高精度首帧生图与运镜提示词
+    const enrichedShots = await enrichShotsWithAdaptiveVisualDirector(
+      shots,
+      visualProfile,
+      apiKey,
+      script,
+      topic
+    );
 
     return NextResponse.json({
       success: true,
+      visualProfile,
       shots: enrichedShots,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || '视觉导演重塑失败' }, { status: 500 });
+    return NextResponse.json({ error: err.message || '视觉导演自适应分析失败' }, { status: 500 });
   }
 }

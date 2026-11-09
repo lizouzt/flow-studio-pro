@@ -4,7 +4,7 @@ import fs from 'fs';
 import { getStudioConfig } from '@/lib/config';
 import { alignAudio } from '@/lib/asr';
 import { aggregateCuesToShots } from '@/lib/pacing';
-import { enrichShotsWithVisualDirector } from '@/lib/visualDirector';
+import { analyzeVisualContext, enrichShotsWithAdaptiveVisualDirector } from '@/lib/visualDirector';
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,13 +47,17 @@ export async function POST(req: NextRequest) {
       styleId || 'Historical Comic'
     );
 
-    // 视觉导演 Agent：针对解说词语义深度注入南宋历史与中式人物美术提示词
+    // 视觉导演 Agent：根据全局文稿与题材自适应提取《视觉世界观档案》
     const apiKey = config.dashscope?.api_key || '';
-    const shots = await enrichShotsWithVisualDirector(rawShots, apiKey, text);
+    const visualProfile = await analyzeVisualContext(text, '', apiKey);
+
+    // 基于提取出的世界观档案为每个镜头生成自适应首帧与运镜提示词
+    const shots = await enrichShotsWithAdaptiveVisualDirector(rawShots, visualProfile, apiKey, text);
 
     return NextResponse.json({
       success: true,
       srtPath: `/output/subtitles/${path.basename(srtFile)}`,
+      visualProfile,
       shots,
     });
   } catch (err: any) {

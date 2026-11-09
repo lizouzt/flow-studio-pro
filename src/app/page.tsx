@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shot } from '@/types';
+import { Shot, VisualContextProfile } from '@/types';
 import {
   Header,
   ScriptAndVoiceStep,
@@ -46,6 +46,7 @@ export default function StoryStudioWeb() {
   const [isBatchGeneratingImages, setIsBatchGeneratingImages] = useState<boolean>(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [isPolishingPrompts, setIsPolishingPrompts] = useState<boolean>(false);
+  const [visualProfile, setVisualProfile] = useState<VisualContextProfile | null>(null);
   const [criticReviewData, setCriticReviewData] = useState<{ [shotId: string]: any }>({});
   const [enableSpeedRamp, setEnableSpeedRamp] = useState<boolean>(true);
   const [enableOpticalFlow, setEnableOpticalFlow] = useState<boolean>(true);
@@ -265,8 +266,11 @@ export default function StoryStudioWeb() {
         throw new Error('未生成任何有效镜头，请检查 ASR 返回的时间戳数据');
       }
 
+      if (asrData.visualProfile) {
+        setVisualProfile(asrData.visualProfile);
+      }
       setShots(asrData.shots);
-      showToast(`成功生成 ${asrData.shots.length} 个标准叙事镜头！`, 'success');
+      showToast(`成功生成 ${asrData.shots.length} 个标准镜头，已完成视觉世界观自适应提取！`, 'success');
       setCurrentStep(2);
     } catch (e: any) {
       showToast(`执行中断: ${e.message}`, 'error');
@@ -283,7 +287,7 @@ export default function StoryStudioWeb() {
       const res = await fetch('/api/wanx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, shotId }),
+        body: JSON.stringify({ prompt, shotId, visualProfile }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '生图失败');
@@ -326,7 +330,7 @@ export default function StoryStudioWeb() {
         const res = await fetch('/api/wanx', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: promptToUse, shotId: targetShot.shot_id }),
+          body: JSON.stringify({ prompt: promptToUse, shotId: targetShot.shot_id, visualProfile }),
         });
         const data = await res.json();
         if (res.ok && data.imageUrl) {
@@ -350,27 +354,30 @@ export default function StoryStudioWeb() {
     showToast(`✨ 批量首帧绘制完成！成功生成 ${successCount}/${targetShots.length} 镜`, 'success');
   };
 
-  // 视觉导演 Agent：为当前分镜重塑南宋历史与中式人物首帧提示词
+  // 视觉导演 Agent：根据文稿语义自适应提取时代环境与人设，重塑分镜提示词
   const handlePolishVisualPrompts = async () => {
     if (!shots || shots.length === 0) {
       showToast('当前暂无分镜单元！', 'error');
       return;
     }
     setIsPolishingPrompts(true);
-    showToast('正在启动视觉导演 Agent，根据解说词语义深度重塑南宋国风分镜...', 'info');
+    showToast('正在启动视觉世界观解析器，自适应分析时代背景并重塑分镜...', 'info');
 
     try {
       const res = await fetch('/api/visual-director', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shots, topic: writingTopic }),
+        body: JSON.stringify({ shots, topic: writingTopic, script }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '视觉导演重塑失败');
+      if (!res.ok) throw new Error(data.error || '自适应重塑失败');
 
+      if (data.visualProfile) {
+        setVisualProfile(data.visualProfile);
+      }
       if (data.shots && data.shots.length > 0) {
         setShots(data.shots);
-        showToast('✨ 视觉导演重塑完成！已注入宋代名将铠甲、战马与历史光影提示词', 'success');
+        showToast(`✨ 视觉世界观提取完成（${data.visualProfile?.era_setting || '自适应'}）！已更新所有分镜`, 'success');
       }
     } catch (err: any) {
       showToast(`视觉导演执行异常: ${err.message}`, 'error');
@@ -604,6 +611,7 @@ export default function StoryStudioWeb() {
             >
               <StoryboardStep
                 shots={shots}
+                visualProfile={visualProfile}
                 animatingShotId={animatingShotId}
                 generatingImageShotId={generatingImageShotId}
                 isBatchGeneratingImages={isBatchGeneratingImages}

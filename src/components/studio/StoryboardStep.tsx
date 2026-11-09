@@ -14,10 +14,11 @@ import {
   Palette,
   Wand2,
 } from 'lucide-react';
-import { Shot } from '@/types';
+import { Shot, VisualContextProfile } from '@/types';
 
 interface StoryboardStepProps {
   shots: Shot[];
+  visualProfile?: VisualContextProfile | null;
   animatingShotId: string | null;
   generatingImageShotId?: string | null;
   isBatchGeneratingImages?: boolean;
@@ -37,6 +38,7 @@ interface StoryboardStepProps {
 
 export const StoryboardStep: React.FC<StoryboardStepProps> = ({
   shots,
+  visualProfile,
   animatingShotId,
   generatingImageShotId,
   isBatchGeneratingImages = false,
@@ -82,15 +84,18 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
   return (
     <div className="flex flex-col gap-6">
       <div className="glass-panel rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-0.5 max-w-xl">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-white">分镜总览</span>
             <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-semibold border border-amber-500/20">
               共 {shots.length} 镜
             </span>
           </div>
-          <span className="text-xs text-gray-400">
-            视觉基准：<b className="text-amber-300">厚涂中国历史古典风 (Song Dynasty Historic)</b>
+          <span className="text-xs text-gray-400 truncate">
+            自适应世界观：
+            <b className="text-amber-300 font-normal">
+              {visualProfile?.era_setting || '基于文本自适应提取中...'}
+            </b>
           </span>
         </div>
 
@@ -99,10 +104,11 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
             <button
               disabled={isPolishingPrompts}
               onClick={onPolishVisualPrompts}
+              title="基于文稿背景深度提取时代与人设档案，自适应重塑各分镜生图提示词"
               className="px-3.5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs text-amber-300 border border-amber-500/20 flex items-center gap-1.5 transition disabled:opacity-50"
             >
               <Wand2 className={`w-3.5 h-3.5 ${isPolishingPrompts ? 'animate-spin' : ''}`} />
-              <span>{isPolishingPrompts ? '视觉导演重塑中...' : '✨ AI 重塑国风分镜'}</span>
+              <span>{isPolishingPrompts ? '世界观自适应分析中...' : '✨ AI 自适应重塑分镜'}</span>
             </button>
           )}
 
@@ -168,7 +174,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                     </div>
                     <span className="text-xs font-semibold text-amber-300">通义万相正在生图...</span>
                     <span className="text-[10px] text-gray-400 mt-1 max-w-[160px] line-clamp-2">
-                      Wanx 2.1 正在绘制南宋国风 720x1280 首帧
+                      Wanx 2.1 正在绘制 720x1280 首帧画面
                     </span>
                   </div>
                 ) : hasImage ? (
