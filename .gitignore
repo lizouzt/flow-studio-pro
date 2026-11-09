@@ -95,3 +95,16 @@ package-lock.json*
 
 # Marketing site Playwright temp (auth state, raw webm)
 site/assets/media/_recordings/
+
+# ==========================================
+# 9. Media & Render Outputs (User Generated)
+# ==========================================
+/output/audio/*
+!/output/audio/.gitkeep
+/output/images/*
+!/output/images/.gitkeep
+/output/videos/*
+!/output/videos/.gitkeep
+/output/subtitles/*
+!/output/subtitles/.gitkeep
+
