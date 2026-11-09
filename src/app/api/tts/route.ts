@@ -5,7 +5,7 @@ import { synthesizeSpeech } from '@/lib/dashscope';
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, voice, speechRate } = await req.json();
+    const { text, voice, speechRate, forceRegenerate = false } = await req.json();
     if (!text) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
     }
@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
         model: config.dashscope.tts.model,
         voice: voice || config.dashscope.tts.voice,
         speechRate: speechRate || config.dashscope.tts.speech_rate,
+        forceRegenerate,
       },
       outputDir
     );
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest) {
       success: true,
       audioPath: result.audioPath,
       durationSec: result.durationSec,
+      fromCache: result.fromCache ?? false,
+      audioHash: result.audioHash,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'TTS generation failed' }, { status: 500 });

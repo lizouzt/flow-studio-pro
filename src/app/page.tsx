@@ -217,22 +217,27 @@ export default function StoryStudioWeb() {
     }
   };
 
-  // 1. 真实生成配音与字幕切镜
-  const handleGenerateTTSAndASR = async () => {
+  // 1. 真实生成配音与字幕切镜 (支持内容指纹秒级缓存与 force 强制重排)
+  const handleGenerateTTSAndASR = async (force: boolean = false) => {
     if (!script.trim()) {
       showToast('口播文稿不能为空！', 'error');
       return;
     }
 
     setIsProcessing(true);
-    showToast('正在请求阿里云百炼 CosyVoice 合成配音...', 'info');
+    showToast(force ? '正在强制重新请求阿里云百炼合成配音...' : '正在请求阿里云百炼 CosyVoice 合成配音...', 'info');
 
     try {
       // 请求 TTS
       const ttsRes = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: script, voice: selectedVoice, speechRate }),
+        body: JSON.stringify({
+          text: script,
+          voice: selectedVoice,
+          speechRate,
+          forceRegenerate: force,
+        }),
       });
       const ttsData = await ttsRes.json();
       if (!ttsRes.ok) {
@@ -240,12 +245,16 @@ export default function StoryStudioWeb() {
       }
       setGeneratedAudioPath(ttsData.audioPath);
 
-      showToast(
-        asrProvider === 'dashscope_asr'
-          ? '配音已就绪，正在调用阿里云百炼 Qwen-Audio ASR 提取毫秒级时间戳...'
-          : '配音已就绪，正在连接 faster-whisper-server 提取毫秒级时间戳...',
-        'info'
-      );
+      if (ttsData.fromCache) {
+        showToast('🔊 命中文案配音指纹缓存，0秒直出！正在检查字幕缓存...', 'info');
+      } else {
+        showToast(
+          asrProvider === 'dashscope_asr'
+            ? '配音合成就绪，正在调用百炼 Qwen-Audio ASR 提取毫秒级时间戳...'
+            : '配音合成就绪，正在连接 faster-whisper-server 提取毫秒级时间戳...',
+          'info'
+        );
+      }
 
       // 请求 ASR
       const asrRes = await fetch('/api/asr', {
@@ -255,6 +264,7 @@ export default function StoryStudioWeb() {
           audioPath: ttsData.audioPath,
           text: script,
           styleId: 'Historical Comic',
+          forceRegenerate: force,
         }),
       });
       const asrData = await asrRes.json();
@@ -270,7 +280,9 @@ export default function StoryStudioWeb() {
         setVisualProfile(asrData.visualProfile);
       }
       setShots(asrData.shots);
-      showToast(`成功生成 ${asrData.shots.length} 个标准镜头，已完成视觉世界观自适应提取！`, 'success');
+
+      const cacheHint = (ttsData.fromCache && asrData.fromCache) ? ' (⚡全流程秒级缓存直出)' : '';
+      showToast(`成功生成 ${asrData.shots.length} 个标准镜头${cacheHint}，已完成视觉世界观自适应提取！`, 'success');
       setCurrentStep(2);
     } catch (e: any) {
       showToast(`执行中断: ${e.message}`, 'error');
@@ -612,6 +624,7 @@ export default function StoryStudioWeb() {
                 isGeneratingScript={isGeneratingScript}
                 isOralPolishing={isOralPolishing}
                 shotCount={shots.length}
+                generatedAudioPath={generatedAudioPath}
                 onRewriteHook={handleRewriteHook}
                 onGenerateScript={handleGenerateScript}
                 onOralPolish={handleOralPolish}

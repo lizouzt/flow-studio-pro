@@ -8,7 +8,7 @@ import { analyzeVisualContext, enrichShotsWithAdaptiveVisualDirector } from '@/l
 
 export async function POST(req: NextRequest) {
   try {
-    const { audioPath, text, styleId } = await req.json();
+    const { audioPath, text, styleId, forceRegenerate = false } = await req.json();
     if (!text && !audioPath) {
       return NextResponse.json({ error: 'Audio or text is required' }, { status: 400 });
     }
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const provider = config.asr?.provider || 'dashscope_asr';
     const isDashScope = provider === 'dashscope_asr' || provider === 'dashscope';
 
-    const { srtContent, cues } = await alignAudio(
+    const alignRes = await alignAudio(
       realAudioPath,
       {
         provider,
@@ -31,18 +31,21 @@ export async function POST(req: NextRequest) {
         model: isDashScope 
           ? (config.asr?.dashscope_model || 'qwen-audio-3.0-asr-flash')
           : (config.asr?.model || 'whisper-1'),
+        forceRegenerate,
       }
     );
 
-    // 将真实生成的 SRT 保存到 output/subtitles/
+    const srtFileName = alignRes.cacheKey ? `voice_${alignRes.cacheKey}.srt` : `subtitles_${Date.now()}.srt`;
     const srtDir = path.resolve(process.cwd(), 'output', 'subtitles');
     fs.mkdirSync(srtDir, { recursive: true });
-    const srtFile = path.join(srtDir, `subtitles_${Date.now()}.srt`);
-    fs.writeFileSync(srtFile, srtContent, 'utf-8');
+    const srtFile = path.join(srtDir, srtFileName);
+    if (!fs.existsSync(srtFile) || forceRegenerate) {
+      fs.writeFileSync(srtFile, alignRes.srtContent, 'utf-8');
+    }
 
     // 智能聚合成 4~7s 镜头单元
     const rawShots = aggregateCuesToShots(
-      cues, 
+      alignRes.cues, 
       config.pacing.target_shot_duration_sec || 5.5,
       styleId || 'Historical Comic'
     );
@@ -56,9 +59,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      srtPath: `/output/subtitles/${path.basename(srtFile)}`,
+      srtPath: `/output/subtitles/${srtFileName}`,
       visualProfile,
       shots,
+      fromCache: alignRes.fromCache ?? false,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'ASR alignment failed' }, { status: 500 });

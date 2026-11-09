@@ -9,13 +9,14 @@ export interface TTSOptions {
   speechRate?: number;
   pitchRate?: number;
   format?: string;
+  forceRegenerate?: boolean;
 }
 
 export async function synthesizeSpeech(
   text: string,
   options: TTSOptions,
   outputDir: string
-): Promise<{ audioPath: string; durationSec: number }> {
+): Promise<{ audioPath: string; durationSec: number; fromCache?: boolean; audioHash: string }> {
   if (!options.apiKey || options.apiKey.startsWith('YOUR_') || options.apiKey.includes('sk-xxx') || options.apiKey.trim() === '') {
     throw new Error('未配置有效的阿里云百炼 API Key (DASHSCOPE_API_KEY)。请点击右上角设置图标填入有效的百炼 Key。');
   }
@@ -33,16 +34,29 @@ export async function synthesizeSpeech(
     targetVoice = 'longanhuan';
   }
 
-  const hash = crypto.createHash('sha256').update(`${text}_${targetModel}_${targetVoice}_${options.speechRate}`).digest('hex');
-  const fileName = `voice_${hash.slice(0, 10)}.mp3`;
+  const hash = crypto.createHash('sha256').update(`${text.trim()}_${targetModel}_${targetVoice}_${options.speechRate || 1.0}`).digest('hex').slice(0, 12);
+  const fileName = `voice_${hash}.mp3`;
+  const metaFileName = `voice_${hash}.meta.json`;
   const finalPath = path.join(outputDir, fileName);
+  const finalMetaPath = path.join(outputDir, metaFileName);
 
-  // 命中文本/音色哈希缓存则直接复用
-  if (fs.existsSync(finalPath) && fs.statSync(finalPath).size > 1024) {
+  // 命中文本/音色哈希缓存则直接复用 (未开启强制重新生成时)
+  if (!options.forceRegenerate && fs.existsSync(finalPath) && fs.statSync(finalPath).size > 1024) {
+    let exactDuration: number | null = null;
+    if (fs.existsSync(finalMetaPath)) {
+      try {
+        const meta = JSON.parse(fs.readFileSync(finalMetaPath, 'utf-8'));
+        if (typeof meta.durationSec === 'number' && meta.durationSec > 0) {
+          exactDuration = meta.durationSec;
+        }
+      } catch {}
+    }
     const stats = fs.statSync(finalPath);
     return { 
       audioPath: `/output/audio/${fileName}`, 
-      durationSec: estimateDurationFromSize(stats.size)
+      durationSec: exactDuration ?? estimateDurationFromSize(stats.size),
+      fromCache: true,
+      audioHash: hash,
     };
   }
 
@@ -115,9 +129,25 @@ export async function synthesizeSpeech(
 
   fs.writeFileSync(finalPath, audioBuffer);
 
+  const estimatedDuration = estimateDurationFromSize(audioBuffer.byteLength);
+  // 保存初始元数据缓存
+  try {
+    fs.writeFileSync(finalMetaPath, JSON.stringify({
+      audioHash: hash,
+      fileName,
+      durationSec: estimatedDuration,
+      model: targetModel,
+      voice: targetVoice,
+      speechRate: options.speechRate || 1.0,
+      createdAt: new Date().toISOString(),
+    }, null, 2), 'utf-8');
+  } catch {}
+
   return {
     audioPath: `/output/audio/${fileName}`,
-    durationSec: estimateDurationFromSize(audioBuffer.byteLength)
+    durationSec: estimatedDuration,
+    fromCache: false,
+    audioHash: hash,
   };
 }
 

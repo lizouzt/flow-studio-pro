@@ -13,6 +13,7 @@ import {
   Play,
   CheckCircle2,
   ArrowRight,
+  RefreshCw,
 } from 'lucide-react';
 
 interface ScriptAndVoiceStepProps {
@@ -35,10 +36,11 @@ interface ScriptAndVoiceStepProps {
   isGeneratingScript: boolean;
   isOralPolishing: boolean;
   shotCount: number;
+  generatedAudioPath?: string;
   onRewriteHook: () => void;
   onGenerateScript: () => void;
   onOralPolish: () => void;
-  onGenerateTTSAndASR: () => void;
+  onGenerateTTSAndASR: (force?: boolean) => void;
   onGoToStoryboard: () => void;
 }
 
@@ -62,6 +64,7 @@ export const ScriptAndVoiceStep: React.FC<ScriptAndVoiceStepProps> = ({
   isGeneratingScript,
   isOralPolishing,
   shotCount,
+  generatedAudioPath,
   onRewriteHook,
   onGenerateScript,
   onOralPolish,
@@ -221,15 +224,34 @@ export const ScriptAndVoiceStep: React.FC<ScriptAndVoiceStepProps> = ({
         />
 
         <div className="flex justify-between items-center pt-1">
-          <span className="text-xs text-gray-500">将基于定稿文案调用阿里云百炼 CosyVoice 录制</span>
-          <button
-            disabled={isProcessing}
-            onClick={onGenerateTTSAndASR}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-semibold text-xs shadow-lg shadow-amber-500/20 flex items-center gap-2 transition active:scale-95 disabled:opacity-50"
-          >
-            <Mic className="w-4 h-4" />
-            {isProcessing ? '正在真实处理中...' : '生成百炼配音与时间戳'}
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">将基于定稿文案调用阿里云百炼 CosyVoice 录制</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+              ⚡内容指纹秒级缓存
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {generatedAudioPath && (
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={() => onGenerateTTSAndASR(true)}
+                title="强制穿透缓存，重新调用百炼合成配音与识别时间戳"
+                className="px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 hover:text-white text-xs border border-white/10 flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
+                强制重配
+              </button>
+            )}
+            <button
+              disabled={isProcessing}
+              onClick={() => onGenerateTTSAndASR(false)}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-semibold text-xs shadow-lg shadow-amber-500/20 flex items-center gap-2 transition active:scale-95 disabled:opacity-50"
+            >
+              <Mic className="w-4 h-4" />
+              {isProcessing ? '正在真实处理中...' : '生成百炼配音与时间戳'}
+            </button>
+          </div>
         </div>
       </div>
 

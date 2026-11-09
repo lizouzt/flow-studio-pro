@@ -1,3 +1,6 @@
+import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
 import { SrtCue } from './pacing';
 
 export interface ASROptions {
@@ -6,20 +9,65 @@ export interface ASROptions {
   apiKey?: string;
   dashscopeApiKey?: string;
   model?: string;
+  forceRegenerate?: boolean;
+}
+
+/**
+ * 提取音频内容特征指纹 (优先提取 voice_{hash}.mp3 中的 hash，其次计算文件内容哈希)
+ */
+function getAudioFingerprint(audioFilePath: string): string {
+  const match = audioFilePath.match(/voice_([a-zA-Z0-9]+)\.mp3/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  try {
+    if (fs.existsSync(audioFilePath)) {
+      const buf = fs.readFileSync(audioFilePath);
+      return crypto.createHash('sha256').update(buf).digest('hex').slice(0, 12);
+    }
+  } catch {}
+  return crypto.createHash('sha256').update(audioFilePath).digest('hex').slice(0, 12);
 }
 
 /**
  * 统一 ASR 语音对齐入口：自动根据 provider 路由到百炼 ASR 或 faster-whisper-server / OpenAI 兼容端点
+ * 内置基于音频指纹的 SRT 字幕与 Cues 时间戳双重缓存
  */
 export async function alignAudio(
   audioFilePath: string,
   options: ASROptions
-): Promise<{ srtContent: string; cues: SrtCue[] }> {
+): Promise<{ srtContent: string; cues: SrtCue[]; fromCache?: boolean; cacheKey?: string }> {
+  const audioHash = getAudioFingerprint(audioFilePath);
+  const subtitlesDir = path.resolve(process.cwd(), 'output', 'subtitles');
+  const cachedSrtPath = path.join(subtitlesDir, `voice_${audioHash}.srt`);
+  const cachedCuesPath = path.join(subtitlesDir, `voice_${audioHash}.cues.json`);
+
+  // 1. 检查 ASR 本地指纹缓存 (未开启强制重新生成时)
+  if (!options.forceRegenerate && fs.existsSync(cachedSrtPath) && fs.existsSync(cachedCuesPath)) {
+    try {
+      const srtContent = fs.readFileSync(cachedSrtPath, 'utf-8');
+      const cues = JSON.parse(fs.readFileSync(cachedCuesPath, 'utf-8'));
+      if (Array.isArray(cues) && cues.length > 0 && srtContent.trim().length > 0) {
+        console.log(`[ASR Cache Hit] 命中音频指纹字幕缓存: voice_${audioHash}`);
+        return {
+          srtContent,
+          cues,
+          fromCache: true,
+          cacheKey: audioHash,
+        };
+      }
+    } catch (e) {
+      console.warn(`[ASR Cache] 读取缓存失败，降级重新转写:`, e);
+    }
+  }
+
   const provider = (options.provider || '').toLowerCase();
 
   // 若明确指定 dashscope_asr，或未指定 provider 但仅配置了百炼 Key 且没有配置 whisper endpoint
   const isDashScope = provider === 'dashscope_asr' || provider === 'dashscope' || 
     (!provider && !options.endpointUrl && (options.dashscopeApiKey || options.apiKey));
+
+  let alignResult: { srtContent: string; cues: SrtCue[] };
 
   if (isDashScope) {
     const key = options.dashscopeApiKey || options.apiKey || '';
@@ -28,15 +76,44 @@ export async function alignAudio(
     const model = (rawModel === 'qwen-audio-3.0-asr-flash' || rawModel === 'sensevoice-v1')
       ? 'qwen-audio-3.1-asr-flash-filetrans'
       : rawModel;
-    return alignAudioWithDashScope(audioFilePath, { apiKey: key, model });
+    alignResult = await alignAudioWithDashScope(audioFilePath, { apiKey: key, model });
+  } else {
+    // 默认走 faster-whisper-server / OpenAI 兼容协议
+    alignResult = await alignAudioWithWhisper(audioFilePath, {
+      endpointUrl: options.endpointUrl || 'http://127.0.0.1:8000/v1/audio/transcriptions',
+      apiKey: options.apiKey,
+      model: options.model || 'whisper-1',
+    });
   }
 
-  // 默认走 faster-whisper-server / OpenAI 兼容协议
-  return alignAudioWithWhisper(audioFilePath, {
-    endpointUrl: options.endpointUrl || 'http://127.0.0.1:8000/v1/audio/transcriptions',
-    apiKey: options.apiKey,
-    model: options.model || 'whisper-1',
-  });
+  // 2. 将转写结果持久化为指纹缓存 (供未来秒级复用)
+  try {
+    fs.mkdirSync(subtitlesDir, { recursive: true });
+    fs.writeFileSync(cachedSrtPath, alignResult.srtContent, 'utf-8');
+    fs.writeFileSync(cachedCuesPath, JSON.stringify(alignResult.cues, null, 2), 'utf-8');
+
+    // 同步将精确时长回写至音频 meta.json
+    if (alignResult.cues.length > 0) {
+      const lastCue = alignResult.cues[alignResult.cues.length - 1];
+      const audioDir = path.resolve(process.cwd(), 'output', 'audio');
+      const metaPath = path.join(audioDir, `voice_${audioHash}.meta.json`);
+      if (fs.existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+          meta.durationSec = lastCue.end_sec;
+          fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8');
+        } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn('[ASR Cache Write] 保存 ASR 指纹缓存异常:', err);
+  }
+
+  return {
+    ...alignResult,
+    fromCache: false,
+    cacheKey: audioHash,
+  };
 }
 
 /**
