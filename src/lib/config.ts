@@ -94,8 +94,8 @@ module.exports = {
 
     // 语音大模型 (CosyVoice)
     tts: {
-      model: ${JSON.stringify(config.dashscope?.tts?.model || "cosyvoice-v1")},
-      voice: ${JSON.stringify(config.dashscope?.tts?.voice || "longxiaochun")},
+      model: ${JSON.stringify(config.dashscope?.tts?.model || "cosyvoice-v3-flash")},
+      voice: ${JSON.stringify(config.dashscope?.tts?.voice || "longanyang")},
       speech_rate: ${config.dashscope?.tts?.speech_rate || 1.05},
       pitch_rate: ${config.dashscope?.tts?.pitch_rate || 1.0},
       format: ${JSON.stringify(config.dashscope?.tts?.format || "mp3")},

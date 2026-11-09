@@ -9,8 +9,8 @@ module.exports = {
     api_key: process.env.DASHSCOPE_API_KEY || "",
 
     tts: {
-      model: "cosyvoice-v1",
-      voice: "longxiaochun", // 龙小淳 (青年叙事) / 龙华 (沉稳史诗)
+      model: "cosyvoice-v3-flash",
+      voice: "longanyang", // 龙安洋 (青年叙事) / 龙安欢 (元气女声)
       speech_rate: 1.05,
       pitch_rate: 1.0,
       format: "mp3",

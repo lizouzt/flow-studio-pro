@@ -25,18 +25,19 @@ module.exports = {
     tts: {
       /**
        * 使用的语音大模型版本
-       * 推荐："cosyvoice-v1" (经典高表现力), "cosyvoice-latest" (最新特性)
+       * 推荐："cosyvoice-v3-flash" (官方推荐主力模型，极速流式高音质), "cosyvoice-v3-plus"
        */
-      model: "cosyvoice-v1",
+      model: "cosyvoice-v3-flash",
 
       /**
-       * 默认朗读主播音色 ID
+       * 默认朗读主播音色 ID (CosyVoice v3 系列官方音色)
        * 推荐选项：
-       *  - "longxiaochun" : 龙小淳 (青年温和叙事，极适合纪录片、历史故事)
-       *  - "longhua"      : 龙华 (沉稳浑厚史诗，适合严肃历史、战争风)
-       *  - "longwan"      : 龙婉 (女性深情叙述)
+       *  - "longanyang"    : 龙安洋 (阳光青年男声，沉稳叙事，极适合纪录片、历史短剧)
+       *  - "longanhuan"    : 龙安欢 (欢脱元气女声，感染力强，适合爆款口播)
+       *  - "longanhuan_v3" : 龙安欢 V3 (支持多方言与情感控制)
+       *  - "longhuhu_v3"   : 龙呼呼 (天真烂漫童声)
        */
-      voice: "longxiaochun",
+      voice: "longanyang",
 
       /**
        * 语速调节倍率

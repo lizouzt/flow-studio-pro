@@ -20,7 +20,20 @@ export async function synthesizeSpeech(
     throw new Error('未配置有效的阿里云百炼 API Key (DASHSCOPE_API_KEY)。请点击右上角设置图标填入有效的百炼 Key。');
   }
 
-  const hash = crypto.createHash('sha256').update(`${text}_${options.model}_${options.voice}_${options.speechRate}`).digest('hex');
+  // 智能平滑映射旧版已下线模型与音色，确保零报错
+  let targetModel = options.model || 'cosyvoice-v3-flash';
+  if (targetModel === 'cosyvoice-v1' || targetModel === 'cosyvoice-latest') {
+    targetModel = 'cosyvoice-v3-flash';
+  }
+
+  let targetVoice = options.voice || 'longanyang';
+  if (targetVoice === 'longxiaochun' || targetVoice === 'longhua') {
+    targetVoice = 'longanyang'; // 平滑映射至 v3-flash 官方推荐叙事标杆音色
+  } else if (targetVoice === 'longwan') {
+    targetVoice = 'longanhuan';
+  }
+
+  const hash = crypto.createHash('sha256').update(`${text}_${targetModel}_${targetVoice}_${options.speechRate}`).digest('hex');
   const fileName = `voice_${hash.slice(0, 10)}.mp3`;
   const finalPath = path.join(outputDir, fileName);
 
@@ -35,22 +48,25 @@ export async function synthesizeSpeech(
 
   fs.mkdirSync(outputDir, { recursive: true });
 
-  // 真实 DashScope CosyVoice API 调用
-  const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-to-speech/generation', {
+  // 阿里云百炼官方 SpeechSynthesizer 标准接口调用
+  const endpoint = 'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer';
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${options.apiKey.trim()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: options.model || 'cosyvoice-v1',
-      input: { text },
+      model: targetModel,
+      input: {
+        text,
+        voice: targetVoice,
+      },
       parameters: {
-        voice: options.voice || 'longxiaochun',
         format: options.format || 'mp3',
         sample_rate: 22050,
         rate: options.speechRate || 1.0,
-        pitch: options.pitchRate || 1.0
+        pitch: options.pitchRate || 1.0,
       }
     })
   });
@@ -67,16 +83,41 @@ export async function synthesizeSpeech(
     throw new Error(errMsg);
   }
 
-  const buffer = await response.arrayBuffer();
-  if (buffer.byteLength < 512) {
+  // 百炼 SpeechSynthesizer 返回 JSON 格式结果，包含音频下载 URL
+  const resText = await response.text();
+  let audioBuffer: Buffer;
+
+  try {
+    const resJson = JSON.parse(resText);
+    const downloadUrl = resJson?.output?.audio?.url;
+    if (downloadUrl) {
+      // 从返回的 oss 下载链接获取实际音频数据
+      const audioRes = await fetch(downloadUrl);
+      if (!audioRes.ok) {
+        throw new Error(`下载百炼生成的音频失败 (HTTP ${audioRes.status})`);
+      }
+      const arrayBuf = await audioRes.arrayBuffer();
+      audioBuffer = Buffer.from(arrayBuf);
+    } else if (resJson?.output?.audio?.data) {
+      // 兼容 Base64 音频返回
+      audioBuffer = Buffer.from(resJson.output.audio.data, 'base64');
+    } else {
+      throw new Error(`百炼未返回有效的音频地址或数据: ${resText.slice(0, 300)}`);
+    }
+  } catch (parseErr: any) {
+    // 兼容可能直接返回二进制流的情况
+    audioBuffer = Buffer.from(resText);
+  }
+
+  if (audioBuffer.byteLength < 512) {
     throw new Error('百炼语音合成返回音频数据异常，请检查配音参数。');
   }
 
-  fs.writeFileSync(finalPath, Buffer.from(buffer));
+  fs.writeFileSync(finalPath, audioBuffer);
 
   return {
     audioPath: `/output/audio/${fileName}`,
-    durationSec: estimateDurationFromSize(buffer.byteLength)
+    durationSec: estimateDurationFromSize(audioBuffer.byteLength)
   };
 }
 

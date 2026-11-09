@@ -49,7 +49,7 @@ const INITIAL_SCRIPT = `五十骑直插五万敌阵，生擒叛将还毫发无�
 export default function StoryStudioWeb() {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [script, setScript] = useState<string>(INITIAL_SCRIPT);
-  const [selectedVoice, setSelectedVoice] = useState<string>('longxiaochun');
+  const [selectedVoice, setSelectedVoice] = useState<string>('longanyang');
   const [speechRate, setSpeechRate] = useState<number>(1.05);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isRewritingHook, setIsRewritingHook] = useState<boolean>(false);
@@ -739,35 +739,35 @@ export default function StoryStudioWeb() {
 
                   {/* 音色卡片 */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-2">选择主播音色</label>
+                    <label className="block text-xs font-medium text-gray-400 mb-2">选择主播音色 (CosyVoice v3)</label>
                     <div className="grid grid-cols-2 gap-2.5">
                       <div
-                        onClick={() => setSelectedVoice('longxiaochun')}
+                        onClick={() => setSelectedVoice('longanyang')}
                         className={`p-3 rounded-xl cursor-pointer flex items-center gap-3 transition ${
-                          selectedVoice === 'longxiaochun'
+                          selectedVoice === 'longanyang' || selectedVoice === 'longxiaochun'
                             ? 'border border-amber-500/50 bg-amber-500/10'
                             : 'border border-brand-border bg-white/[0.02] opacity-60'
                         }`}
                       >
-                        <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-xs">淳</div>
+                        <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-xs">洋</div>
                         <div>
-                          <div className="text-xs font-semibold text-white">龙小淳 (推荐)</div>
-                          <div className="text-[10px] text-gray-400">青年纪录片 / 叙事解说</div>
+                          <div className="text-xs font-semibold text-white">龙安洋 (推荐)</div>
+                          <div className="text-[10px] text-gray-400">阳光青年 / 纪录片叙事解说</div>
                         </div>
                       </div>
 
                       <div
-                        onClick={() => setSelectedVoice('longhua')}
+                        onClick={() => setSelectedVoice('longanhuan')}
                         className={`p-3 rounded-xl cursor-pointer flex items-center gap-3 transition ${
-                          selectedVoice === 'longhua'
+                          selectedVoice === 'longanhuan' || selectedVoice === 'longhua'
                             ? 'border border-amber-500/50 bg-amber-500/10'
                             : 'border border-brand-border bg-white/[0.02] opacity-60'
                         }`}
                       >
-                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-xs">华</div>
+                        <div className="w-8 h-8 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-400 font-bold text-xs">欢</div>
                         <div>
-                          <div className="text-xs font-semibold text-white">龙华 (沉稳)</div>
-                          <div className="text-[10px] text-gray-400">浑厚史诗 / 传记旁白</div>
+                          <div className="text-xs font-semibold text-white">龙安欢 (元气)</div>
+                          <div className="text-[10px] text-gray-400">欢脱女声 / 爆款情绪口播</div>
                         </div>
                       </div>
                     </div>
