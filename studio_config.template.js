@@ -17,7 +17,7 @@ module.exports = {
     },
 
     image: {
-      model: "wanx-2.1-t2i-turbo",
+      model: "wanx2.1-t2i-turbo",
       size: "720*1280", // 9:16 短视频竖屏画幅
       style: "<auto>",
     },

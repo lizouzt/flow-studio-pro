@@ -103,7 +103,7 @@ module.exports = {
 
     // 首帧生图大模型 (通义万相)
     image: {
-      model: ${JSON.stringify(config.dashscope?.image?.model || "wanx-2.1-t2i-turbo")},
+      model: ${JSON.stringify(config.dashscope?.image?.model || "wanx2.1-t2i-turbo")},
       size: ${JSON.stringify(config.dashscope?.image?.size || "720*1280")},
       style: ${JSON.stringify(config.dashscope?.image?.style || "<auto>")},
     },

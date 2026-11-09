@@ -192,13 +192,13 @@ module.exports = {
     // CosyVoice 语音大模型
     tts: {
       model: "cosyvoice-v1",
-      voice: "longxiaochun", // 龙小淳 (叙事) / 龙华 (沉稳史诗) / 龙婉 (深情)
+      voice: "longanyang",    // 龙昂扬 (官方推荐叙事) / 龙安欢 (深情自然)
       speech_rate: 1.05,
     },
 
     // 通义万相首帧生图
     image: {
-      model: "wanx-2.1-t2i-turbo",
+      model: "wanx2.1-t2i-turbo",
       size: "720*1280",       // 9:16 短视频竖屏
     },
 

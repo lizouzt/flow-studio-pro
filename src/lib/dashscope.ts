@@ -130,11 +130,19 @@ function estimateDurationFromSize(byteLength: number): number {
 export async function generateWanxImage(
   prompt: string,
   apiKey: string,
-  model: string = 'wanx-2.1-t2i-turbo',
+  model: string = 'wanx2.1-t2i-turbo',
   size: string = '720*1280'
 ): Promise<string> {
   if (!apiKey || apiKey.startsWith('YOUR_') || apiKey.includes('sk-xxx') || apiKey.trim() === '') {
     throw new Error('未配置有效的阿里云百炼 API Key (DASHSCOPE_API_KEY)，无法调用通义万相生成首帧。');
+  }
+
+  // 智能纠错与映射：百炼官方万相 2.1 文生图模型标识符为 wanx2.1-t2i-turbo / wanx2.1-t2i-plus (wanx 与 2.1 之间无连字符)
+  let targetModel = model || 'wanx2.1-t2i-turbo';
+  if (targetModel === 'wanx-2.1-t2i-turbo' || targetModel === 'wanx-2.1') {
+    targetModel = 'wanx2.1-t2i-turbo';
+  } else if (targetModel === 'wanx-2.1-t2i-plus') {
+    targetModel = 'wanx2.1-t2i-plus';
   }
 
   const res = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis', {
@@ -145,7 +153,7 @@ export async function generateWanxImage(
       'X-DashScope-Async': 'enable'
     },
     body: JSON.stringify({
-      model,
+      model: targetModel,
       input: { prompt },
       parameters: { size, n: 1 }
     })

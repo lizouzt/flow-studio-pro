@@ -65,9 +65,9 @@ module.exports = {
     image: {
       /**
        * 万相生图模型型号
-       * 推荐："wanx-2.1-t2i-turbo" (极速高画质), "wanx-v1" (经典写实)
+       * 推荐："wanx2.1-t2i-turbo" (极速高画质), "wanx2.1-t2i-plus" (旗舰版), "wanx-v1" (经典写实)
        */
-      model: "wanx-2.1-t2i-turbo",
+      model: "wanx2.1-t2i-turbo",
 
       /**
        * 画面生成分辨率与比例
