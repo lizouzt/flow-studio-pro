@@ -279,15 +279,15 @@ export default function StoryStudioWeb() {
     }
   };
 
-  // 2. 真实调用通义万相重新生图
-  const handleRegenerateWanx = async (shotId: string, prompt: string) => {
+  // 2. 真实调用通义万相重新生图 (支持内容哈希缓存快速复用与 force 强制刷新)
+  const handleRegenerateWanx = async (shotId: string, prompt: string, force: boolean = false) => {
     setGeneratingImageShotId(shotId);
-    showToast(`正在调用通义万相绘制 ${shotId} 首帧...`, 'info');
+    showToast(force ? `正在重新调用通义万相绘制 ${shotId} 首帧...` : `正在绘制 ${shotId} 首帧...`, 'info');
     try {
       const res = await fetch('/api/wanx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, shotId, visualProfile }),
+        body: JSON.stringify({ prompt, shotId, visualProfile, force }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '生图失败');
@@ -304,7 +304,12 @@ export default function StoryStudioWeb() {
             : s
         )
       );
-      showToast(`镜头 ${shotId} 首帧绘制成功！`, 'success');
+      showToast(
+        data.cached
+          ? `⚡ 镜头 ${shotId} 命中内容哈希缓存，0秒极速呈现！`
+          : `✨ 镜头 ${shotId} 首帧绘制成功！`,
+        'success'
+      );
     } catch (e: any) {
       showToast(`万相生图失败: ${e.message}`, 'error');
     } finally {
@@ -312,7 +317,7 @@ export default function StoryStudioWeb() {
     }
   };
 
-  // 一键批量生成全部分镜首帧 (通义万相)
+  // 一键批量生成全部分镜首帧 (通义万相，自动内容哈希缓存加速)
   const handleBatchGenerateWanx = async () => {
     if (!shots || shots.length === 0) {
       showToast('当前暂无分镜单元！', 'error');
@@ -327,6 +332,7 @@ export default function StoryStudioWeb() {
     showToast(`🎨 开始批量绘制 ${targetShots.length} 个分镜首帧，请稍候...`, 'info');
 
     let successCount = 0;
+    let cachedCount = 0;
     for (let i = 0; i < targetShots.length; i++) {
       const targetShot = targetShots[i];
       setBatchProgress({ current: i + 1, total: targetShots.length });
@@ -337,10 +343,11 @@ export default function StoryStudioWeb() {
         const res = await fetch('/api/wanx', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: promptToUse, shotId: targetShot.shot_id, visualProfile }),
+          body: JSON.stringify({ prompt: promptToUse, shotId: targetShot.shot_id, visualProfile, force: false }),
         });
         const data = await res.json();
         if (res.ok && data.imageUrl) {
+          if (data.cached) cachedCount++;
           setShots((prev) =>
             prev.map((s) =>
               s.shot_id === targetShot.shot_id
@@ -363,7 +370,8 @@ export default function StoryStudioWeb() {
     setGeneratingImageShotId(null);
     setIsBatchGeneratingImages(false);
     setBatchProgress(null);
-    showToast(`✨ 批量首帧绘制完成！成功生成 ${successCount}/${targetShots.length} 镜`, 'success');
+    const hitMsg = cachedCount > 0 ? ` (其中 ${cachedCount} 镜命中内容缓存秒级直出)` : '';
+    showToast(`✨ 批量首帧就绪！成功处理 ${successCount}/${targetShots.length} 镜${hitMsg}`, 'success');
   };
 
   // 视觉导演 Agent：根据文稿语义自适应提取时代环境与人设，重塑分镜提示词

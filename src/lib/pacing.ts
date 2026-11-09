@@ -95,19 +95,6 @@ export function aggregateCuesToShots(
       const combinedVoiceover = currentCues.map(c => c.text).join(' ');
       const shotId = `shot_${String(shotIndex).padStart(2, '0')}`;
       
-      // 检查本地是否已有历史已生成首帧图，避免产生 404
-      let initialKeyframe = '';
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const candidate = path.resolve(process.cwd(), 'output', 'images', `${shotId}.png`);
-        if (fs.existsSync(candidate)) {
-          initialKeyframe = `/output/images/${shotId}.png`;
-        }
-      } catch {
-        initialKeyframe = '';
-      }
-
       const cameraMotionDesc = `${motion.camera_zh} (${motion.type})`;
 
       const baseShot: Shot = {
@@ -117,15 +104,34 @@ export function aggregateCuesToShots(
         target_duration_sec: Number((cue.end_sec - shotStart).toFixed(2)),
         srt_cues: currentCues.map(c => c.id),
         voiceover: combinedVoiceover,
-        keyframe_image: initialKeyframe,
+        keyframe_image: '',
         camera_motion: cameraMotionDesc,
         subject_action: motion.action_en,
         i2v_prompt: `${motion.camera_en}. The subject in the reference image performs ${motion.action_en}, cinematic ${styleName}, photorealistic, dramatic lighting, 24fps, high quality`,
         rendered_video_path: `/output/videos/${shotId}.mp4`,
-        status: initialKeyframe ? 'ready' : 'pending'
+        status: 'pending'
       };
 
       const shot = synthesizeShotPromptFromProfile(baseShot, shotIndex, defaultProfile);
+
+      // 基于当前镜头自适应提示词计算精确 SHA-256 内容哈希
+      // 只有完全相同的口播文案与提示词才能命中缓存，彻底根除跨题材串图与脏缓存污染
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const crypto = require('crypto');
+        const promptHash = crypto
+          .createHash('sha256')
+          .update(`${shot.t2i_prompt?.trim() || ''}_wanx2.1-t2i-turbo_720*1280`)
+          .digest('hex')
+          .slice(0, 16);
+        const cacheFile = `frame_${promptHash}.png`;
+        const cacheDiskPath = path.resolve(process.cwd(), 'output', 'images', cacheFile);
+        if (fs.existsSync(cacheDiskPath) && fs.statSync(cacheDiskPath).size > 1024) {
+          shot.keyframe_image = `/output/images/${cacheFile}`;
+          shot.status = 'ready';
+        }
+      } catch (cacheErr) {}
 
       shots.push(shot);
       shotIndex++;

@@ -28,7 +28,7 @@ interface StoryboardStepProps {
   onGoToScript: () => void;
   onCriticInspect: (shot: Shot) => void;
   onAnimateWanx: (shot: Shot) => void;
-  onRegenerateWanx: (shotId: string, prompt: string) => void;
+  onRegenerateWanx: (shotId: string, prompt: string, force?: boolean) => void;
   onBatchGenerateWanx?: () => void;
   onPolishVisualPrompts?: () => void;
   onReplaceLocalImage: () => void;
@@ -204,7 +204,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                     </span>
                     <button
                       disabled={isBatchGeneratingImages || isGeneratingImg}
-                      onClick={() => onRegenerateWanx(shot.shot_id, currentT2i)}
+                      onClick={() => onRegenerateWanx(shot.shot_id, currentT2i, false)}
                       className="mt-3 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/10 hover:scale-[1.02] transition disabled:opacity-50"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
@@ -237,8 +237,8 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                   </button>
                   <button
                     disabled={isGeneratingImg}
-                    onClick={() => onRegenerateWanx(shot.shot_id, currentT2i)}
-                    title="调用通义万相重新生图"
+                    onClick={() => onRegenerateWanx(shot.shot_id, currentT2i, true)}
+                    title="强制重新生成首帧 (绕过缓存，抽取全新画面)"
                     className="p-1.5 rounded-lg bg-black/70 backdrop-blur hover:bg-blue-500 hover:text-black text-white text-xs transition"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingImg ? 'animate-spin' : ''}`} />

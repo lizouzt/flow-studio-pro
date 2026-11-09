@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { getStudioConfig } from '@/lib/config';
 import { generateWanxImage } from '@/lib/dashscope';
 import { applyAdaptiveGuardrail } from '@/lib/visualDirector';
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, shotId, visualProfile } = await req.json();
+    const { prompt, shotId, visualProfile, force = false } = await req.json();
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
@@ -16,35 +17,68 @@ export async function POST(req: NextRequest) {
     const guardedPrompt = applyAdaptiveGuardrail(prompt, visualProfile);
 
     const config = getStudioConfig();
+    const imageModel = config.dashscope?.image?.model || 'wanx2.1-t2i-turbo';
+    const imageSize = config.dashscope?.image?.size || '720*1280';
+
+    // 1. 基于“提示词全文 + 模型 + 尺寸”计算 SHA-256 精确内容指纹 (Content-Hash)
+    const promptHash = crypto
+      .createHash('sha256')
+      .update(`${guardedPrompt.trim()}_${imageModel}_${imageSize}`)
+      .digest('hex')
+      .slice(0, 16);
+
+    const imgDir = path.resolve(process.cwd(), 'output', 'images');
+    fs.mkdirSync(imgDir, { recursive: true });
+
+    const hashFileName = `frame_${promptHash}.png`;
+    const hashFilePath = path.join(imgDir, hashFileName);
+    const targetShotId = shotId || `shot_${Date.now()}`;
+    const shotFilePath = path.join(imgDir, `${targetShotId}.png`);
+
+    // 2. 检查内容哈希缓存命中：若未强制重绘且本地已存在有效图像，直接 0 秒极速命中！
+    if (!force && fs.existsSync(hashFilePath) && fs.statSync(hashFilePath).size > 1024) {
+      try {
+        fs.copyFileSync(hashFilePath, shotFilePath);
+      } catch (copyErr) {
+        console.warn('Failed to sync shot file copy:', copyErr);
+      }
+
+      return NextResponse.json({
+        success: true,
+        shotId: targetShotId,
+        cached: true,
+        imageUrl: `/output/images/${hashFileName}`,
+        remoteUrl: '',
+      });
+    }
+
+    // 3. 未命中缓存或用户主动要求强制重绘：真实调用百炼 Wanx 2.1 API
     const remoteImageUrl = await generateWanxImage(
       guardedPrompt,
       config.dashscope.api_key,
-      config.dashscope.image.model,
-      config.dashscope.image.size
+      imageModel,
+      imageSize
     );
 
-    // 本地持久化缓存首帧图至 output/images/
-    const targetShotId = shotId || `shot_${Date.now()}`;
-    const imgDir = path.resolve(process.cwd(), 'output', 'images');
-    fs.mkdirSync(imgDir, { recursive: true });
-    const localFileName = `${targetShotId}.png`;
-    const localFilePath = path.join(imgDir, localFileName);
-
-    let displayUrl = remoteImageUrl;
+    // 4. 将生成的首帧图持久化写入哈希缓存与镜头编号文件
+    let displayUrl = `/output/images/${hashFileName}`;
     try {
       const imgRes = await fetch(remoteImageUrl);
       if (imgRes.ok) {
         const arrayBuf = await imgRes.arrayBuffer();
-        fs.writeFileSync(localFilePath, Buffer.from(arrayBuf));
-        displayUrl = `/output/images/${localFileName}`;
+        const buf = Buffer.from(arrayBuf);
+        fs.writeFileSync(hashFilePath, buf);
+        fs.writeFileSync(shotFilePath, buf);
       }
     } catch (saveErr) {
       console.warn('Failed to save wanx image locally, fallback to remote url:', saveErr);
+      displayUrl = remoteImageUrl;
     }
 
     return NextResponse.json({
       success: true,
       shotId: targetShotId,
+      cached: false,
       imageUrl: displayUrl,
       remoteUrl: remoteImageUrl,
     });

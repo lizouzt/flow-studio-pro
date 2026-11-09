@@ -318,20 +318,53 @@ ${JSON.stringify(shotInputs, null, 2)}
 
     return shots.map((s, idx) => {
       const enriched = promptMap.get(s.shot_id);
+      let targetShot: Shot;
       if (enriched && enriched.t2i_prompt) {
-        return {
+        targetShot = {
           ...s,
           t2i_prompt: enriched.t2i_prompt,
           i2v_prompt: enriched.i2v_prompt || s.i2v_prompt,
           character_anchor: visualProfile.character_anchor,
         };
+      } else {
+        targetShot = synthesizeShotPromptFromProfile(s, idx, visualProfile);
       }
-      return synthesizeShotPromptFromProfile(s, idx, visualProfile);
+      return attachCacheIfAvailable(targetShot);
     });
   } catch (err) {
     console.warn('Enrich shots adaptive error, using synthetic fallback:', err);
-    return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile));
+    return shots.map((s, idx) => attachCacheIfAvailable(synthesizeShotPromptFromProfile(s, idx, visualProfile)));
   }
+}
+
+/**
+ * 检查该提示词是否在磁盘已有内容哈希缓存 (frame_{hash}.png)
+ * 若有，立即复用，无需重复调用万相生图
+ */
+export function attachCacheIfAvailable(shot: Shot): Shot {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const crypto = require('crypto');
+    const targetPrompt = shot.t2i_prompt?.trim() || '';
+    if (targetPrompt) {
+      const promptHash = crypto
+        .createHash('sha256')
+        .update(`${targetPrompt}_wanx2.1-t2i-turbo_720*1280`)
+        .digest('hex')
+        .slice(0, 16);
+      const cacheFile = `frame_${promptHash}.png`;
+      const cacheDiskPath = path.resolve(process.cwd(), 'output', 'images', cacheFile);
+      if (fs.existsSync(cacheDiskPath) && fs.statSync(cacheDiskPath).size > 1024) {
+        return {
+          ...shot,
+          keyframe_image: `/output/images/${cacheFile}`,
+          status: 'ready',
+        };
+      }
+    }
+  } catch {}
+  return shot;
 }
 
 /**
