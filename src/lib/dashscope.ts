@@ -157,6 +157,45 @@ function estimateDurationFromSize(byteLength: number): number {
   return Math.max(3.0, Number(sec.toFixed(1)));
 }
 
+/**
+ * 健壮提取 DashScope 多种数据返回格式中的图片 URL
+ */
+function extractWanxImageUrl(data: any): string | null {
+  if (!data) return null;
+
+  // 1. choices[0].message.content (万相 2.7 / 2.6 多模态格式)
+  const choices = data?.output?.choices;
+  if (Array.isArray(choices) && choices.length > 0) {
+    const content = choices[0]?.message?.content;
+    if (Array.isArray(content)) {
+      for (const item of content) {
+        if (typeof item === 'string' && item.startsWith('http')) return item;
+        if (item?.image && typeof item.image === 'string') return item.image;
+        if (item?.url && typeof item.url === 'string') return item.url;
+        if (item?.image_url && typeof item.image_url === 'string') return item.image_url;
+        if (item?.image_url?.url && typeof item.image_url.url === 'string') return item.image_url.url;
+      }
+    } else if (content && typeof content === 'object') {
+      if (content.image) return content.image;
+      if (content.url) return content.url;
+    }
+  }
+
+  // 2. output.results[0].url (传统文生图异步任务格式)
+  const results = data?.output?.results;
+  if (Array.isArray(results) && results.length > 0) {
+    if (results[0]?.url) return results[0].url;
+    if (results[0]?.image) return results[0].image;
+  }
+
+  // 3. 顶层直接字段兼容
+  if (data?.output?.image_url) return data.output.image_url;
+  if (data?.output?.url) return data.output.url;
+  if (data?.output?.image) return data.output.image;
+
+  return null;
+}
+
 export async function generateWanxImage(
   prompt: string,
   apiKey: string,
@@ -199,8 +238,13 @@ export async function generateWanxImage(
 
   let endpoint: string;
   let requestBody: any;
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${apiKey.trim()}`,
+    'Content-Type': 'application/json',
+  };
 
   if (isMultimodalModel) {
+    // 百炼 Wan 2.7 / Wan 2.6 多模态接口标准端点 (为同步生图模式，严禁传入 X-DashScope-Async 否则报 403 AccessDenied)
     endpoint = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 
     const content: Array<{ text?: string; image?: string }> = [];
@@ -234,7 +278,9 @@ export async function generateWanxImage(
       },
     };
   } else {
+    // 旧版文生图端点 (wanx2.1 需启用异步轮询)
     endpoint = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis';
+    headers['X-DashScope-Async'] = 'enable';
     requestBody = {
       model: targetModel,
       input: { prompt },
@@ -245,31 +291,35 @@ export async function generateWanxImage(
   console.log(`[DashScope Image] 正在向端点 ${endpoint} 发起请求 (模型: ${targetModel}, 包含参考图: ${Boolean(referenceImage)})...`);
   const res = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey.trim()}`,
-      'Content-Type': 'application/json',
-      'X-DashScope-Async': 'enable',
-    },
+    headers,
     body: JSON.stringify(requestBody),
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`通义万相请求失败 (HTTP ${res.status}): ${errText}`);
+    let errMsg = `通义万相请求失败 (HTTP ${res.status})`;
+    try {
+      const errJson = JSON.parse(errText);
+      errMsg += `: ${errJson.message || errJson.code || errText}`;
+    } catch {
+      errMsg += `: ${errText}`;
+    }
+    throw new Error(errMsg);
   }
 
   const data = await res.json();
 
-  // 若同步直接返回了结果，直接提取
-  const immediateUrl =
-    data?.output?.choices?.[0]?.message?.content?.[0]?.image ||
-    data?.output?.results?.[0]?.url ||
-    data?.output?.choices?.[0]?.message?.content?.[0]?.url;
-  if (immediateUrl) return immediateUrl;
+  // 若同步直接返回了生成图像 (Wan 2.7 同步调用直出)
+  const immediateUrl = extractWanxImageUrl(data);
+  if (immediateUrl) {
+    console.log(`[DashScope Image] 成功获取 Wan 2.7 生成图像链接: ${immediateUrl.slice(0, 80)}...`);
+    return immediateUrl;
+  }
 
+  // 仅在异步返回 task_id 时执行轮询 (如旧版 wanx2.1)
   const taskId = data?.output?.task_id;
   if (!taskId) {
-    throw new Error(`通义万相未返回 task_id 或图像地址: ${JSON.stringify(data)}`);
+    throw new Error(`通义万相未返回有效图像地址或 task_id: ${JSON.stringify(data)}`);
   }
 
   // 轮询万相异步生成结果 (最多轮询 60 秒，每 2 秒一次)
@@ -286,11 +336,7 @@ export async function generateWanxImage(
       const checkData = await checkRes.json();
       const status = checkData?.output?.task_status;
       if (status === 'SUCCEEDED') {
-        const imgUrl =
-          checkData?.output?.results?.[0]?.url ||
-          checkData?.output?.choices?.[0]?.message?.content?.[0]?.image ||
-          checkData?.output?.choices?.[0]?.message?.content?.[0]?.url ||
-          checkData?.output?.image_url;
+        const imgUrl = extractWanxImageUrl(checkData);
         if (imgUrl) return imgUrl;
       } else if (status === 'FAILED' || status === 'CANCELED') {
         throw new Error(`通义万相生成失败: ${checkData?.output?.message || checkData?.output?.code || '未知错误'}`);

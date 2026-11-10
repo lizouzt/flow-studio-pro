@@ -93,7 +93,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
       </div>
     );
   }
-
+  console.log('shots', shots)
   return (
     <div className="flex flex-col gap-6">
       <div className="glass-panel rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
