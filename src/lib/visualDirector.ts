@@ -242,34 +242,201 @@ ${script.slice(0, 1500)}`;
 }
 
 /**
- * 镜头焦点与蒙太奇意图分类器：避免全片每一镜都硬塞主角人脸
+ * 通用微观道具与器物名词词法特征库 (跨题材：古代/民国/现代/科技/科幻通用)
+ */
+const PROP_NOUNS =
+  /屏幕|按键|键盘|芯片|主板|电路|仪器|表盘|指针|镜头|手机|电脑|显示器|图纸|手稿|文件|合同|信件|便签|信封|书卷|卷轴|书页|书本|笔尖|钢笔|毛笔|印章|印泥|公章|钥匙|怀表|钟表|齿轮|旋钮|螺丝|引擎|方向盘|把手|手柄|刹车|马蹄|车轮|车牌|门锁|锁链|酒杯|茶盏|茶杯|咖啡杯|水杯|餐具|刀叉|筷子|香烟|打火机|烛台|烛火|油灯|灯芯|试管|烧杯|药瓶|针剂|剑柄|刀锋|剑刃|刀刃|枪口|弹匣|扳机|枪膛|箭簇|弓弦|弓箭|匕首|剑鞘|兵刃|兵器|冷兵器|长枪|符印|令牌|腰牌|虎符|玉佩|指环|戒指|项链|徽章|勋章|纽扣|袖口|指甲|指腹|掌心|血滴|水珠|雨滴|泪滴|汗珠|墨迹|划痕|碎屑|火星|残渣|烟灰|微光/;
+
+/**
+ * 微观触摸与静物动作动词/副词
+ */
+const PROP_VERBS =
+  /特写|微距|局部|浅景深|静物|轻触|触碰|抚摸|划过|按在|按下|紧握|握紧|攥紧|扣动|翻开|合上|摊开|展开|叩击|敲击|端起|放下|抚弄|拾起|捏起|擦拭|倒映|滴落|摇曳|半展|横置|搁在|悬于/;
+
+/**
+ * 宏观空间/地理/建筑与大阵仗名词 (跨题材：自然山川/都市摩天/营地阵线通用)
+ */
+const ENV_NOUNS =
+  /天际线|地平线|山脉|群山|山峦|峰峦|山谷|峡谷|丘陵|平原|荒原|荒漠|沙漠|草原|森林|丛林|深林|海岸|海面|洋流|海浪|江面|江河|湖泊|水泊|西湖|星空|银河|苍穹|天穹|天空|云层|云海|晚霞|朝霞|城市|都市|街道|大道|街景|写字楼|摩天大楼|园区|厂区|基地|实验室|车库|仓库|港口|码头|桥梁|古城|城墙|城郭|宫殿|大殿|广场|大厅|楼阁|水阁|古刹|寺庙|庭院|废墟|遗迹|遗址|阵地|战场|营地|营寨|大营|军帐|连营|烽火台|烽燧|鹿角|要塞|关隘|千军|万马|千军万马|万众|人潮|车流|浩荡|漫山遍野|旌旗蔽野|旌旗|遮天蔽日/;
+
+/**
+ * 宏观环境状态与气象动词/形容词
+ */
+const ENV_VERBS =
+  /铺展|延展|耸立|屹立|连绵|纵横|开阔|空旷|空无一人|广阔|浩瀚|巍峨|磅礴|苍茫|暮色|晨曦|破晓|拂晓|黎明|黄昏|夕阳|残阳|日暮|夜幕|深夜|寒夜|雨夜|暴雨|烟雨|微濛|风雪|大雪|风暴|浓雾|迷雾|薄雾|硝烟|烽烟|烽火|火海|火光冲天|铁幕|黑云|铅云|低垂|笼罩|弥漫|回荡|俯瞰|远眺|极目远眺|尽收眼底|全景|远景|大全景|空镜|大环境/;
+
+/**
+ * 主观视点与冲撞动势动词
+ */
+const POV_VERBS =
+  /呼啸|疾驰|狂飙|穿梭|掠过|冲破|撞碎|破门|破阵|冲锋|突围|扑面而来|扑面|迎面|飞驰而过|擦身而过|第一人称|第一视角|主观镜头|主观视点|爆裂|炸裂|飞沙|碎石|火花四溅|震颤|轰鸣|震耳欲聋/;
+
+/**
+ * 对立群体与受惊恐慌状态
+ */
+const ANTAGONIST_NOUNS =
+  /敌阵|敌军|敌人|敌方|对手|追兵|守卫|敌哨|辕门|防线|惊骇|仓皇|恐慌|惊恐|溃逃|溃散|倒地|四散奔逃|目瞪口呆|错愕|骇然|后退|退缩/;
+
+/**
+ * 核心人物身份与部位名词
+ */
+const CHAR_NOUNS =
+  /他|她|他们|青年|少年|老者|老人|男子|女子|将领|将军|军士|战士|士卒|刺客|侠客|书生|文人|学者|工程师|科学家|程序员|总裁|领袖|身躯|背影|侧影|面庞|面容|脸颊|神态|神情|眼神|目光|双眼|眼眸|瞳孔|眉宇|剑眉|睫毛|下颌|嘴角|唇边|发丝|青丝|鬓角|额头|肩头|胸膛|本尊/;
+
+/**
+ * 主角肢体神态与心理动词
+ */
+const CHAR_VERBS =
+  /凝视|凝望|沉思|若有所思|冷笑|苦笑|微笑|紧抿|咬牙|咬紧|深吸|呼吸|叹息|昂首|抬头|低头|转过身|转身|驻足|伫立|迈步|跨出|拔剑|亮剑|出鞘|挥动|策马|疾呼|朗声|直指|按剑|独坐|独行|孤身|登高|领衔|率领/;
+
+/**
+ * 从世界观档案中提取自适应动态实体关键词
+ */
+function extractDynamicKeywords(text?: string): string[] {
+  if (!text) return [];
+  return text
+    .split(/[,，、;；\s+]+/)
+    .map((w) => w.trim().toLowerCase())
+    .filter((w) => w.length >= 2 && !/^(与|和|或|及|在|着|了|的|之|中|等|是|有)$/.test(w));
+}
+
+/**
+ * 通用词法与语义特征分类器 (跨题材自适应 + 蒙太奇时序节律引擎)
+ * 彻底消除特定题材关键词死板匹配，实现基于动词/名词词性分析与多因子打分的镜头焦点识别
  */
 export function detectShotFocusFromText(
   voiceover: string = '',
   index: number = 0,
-  totalShots: number = 4
+  totalShots: number = 4,
+  profile?: VisualContextProfile,
+  previousFocusList: Array<'character' | 'environment' | 'prop' | 'pov_antagonist'> = []
 ): 'character' | 'environment' | 'prop' | 'pov_antagonist' {
-  const text = voiceover.toLowerCase();
-
-  // 1. 器物与微距道具判定
-  if (/剑刃|刀光|吴钩|手稿|文书|檄文|虎符|案头|油灯|烛光|栏杆|美芹十论|卷轴|书信|马蹄|酒杯|佩玉|腰牌/.test(text)) {
-    return 'prop';
+  const text = (voiceover || '').toLowerCase().trim();
+  if (!text) {
+    return index === 0 ? 'environment' : 'character';
   }
 
-  // 2. 宏观环境建立/大阵仗空镜判定 (首镜或战局宏观描述)
-  if (/大营|营帐|连绵|十里|烽燧|鹿角|山川|丘陵|暮色|苍茫|寒夜|风雪|烟雨|江南|西湖|城郭|铁幕|黑云|千军|万军/.test(text)) {
-    if (index === 0 || index === 2 || !/他|她|将领|冲锋|破阵|斩|双眼|瞳孔/.test(text)) {
-      return 'environment';
+  let propScore = 0;
+  let envScore = 0;
+  let povScore = 0;
+  let charScore = 1.0; // 影视叙事默认以人物行动为重心
+
+  // 句法语义特征提取
+  const hasFaceOrEyes = /双眼|眼眸|瞳孔|眼神|目光|面容|面庞|眉间|额角|下颌|嘴角|咬肌|浅疤|神态|神情/.test(text);
+  const hasSubjectAction = /(?:他|她|他们|主角|青年|将领|将军|独坐|独立|伫立|策马|领衔|率领|端坐|昂首)/.test(text);
+  const hasExplicitPOV = /第一视角|第一人称|主观视点|主观镜头|扑面而来|扑面|迎面|飞驰而过|呼啸而过|穿梭而过/.test(text);
+
+  // 1. 词性与语义正则命中打分
+  const propNounMatches = text.match(new RegExp(PROP_NOUNS.source, 'g')) || [];
+  const propVerbMatches = text.match(new RegExp(PROP_VERBS.source, 'g')) || [];
+  propScore += propNounMatches.length * 2.0 + propVerbMatches.length * 2.2;
+
+  const envNounMatches = text.match(new RegExp(ENV_NOUNS.source, 'g')) || [];
+  const envVerbMatches = text.match(new RegExp(ENV_VERBS.source, 'g')) || [];
+  envScore += envNounMatches.length * 2.0 + envVerbMatches.length * 2.2;
+
+  const povVerbMatches = text.match(new RegExp(POV_VERBS.source, 'g')) || [];
+  const antagMatches = text.match(new RegExp(ANTAGONIST_NOUNS.source, 'g')) || [];
+  povScore += povVerbMatches.length * 2.2 + antagMatches.length * 2.0;
+
+  const charNounMatches = text.match(new RegExp(CHAR_NOUNS.source, 'g')) || [];
+  const charVerbMatches = text.match(new RegExp(CHAR_VERBS.source, 'g')) || [];
+  charScore += charNounMatches.length * 1.5 + charVerbMatches.length * 1.5;
+
+  // 2. 句法主体识别与特写归属权仲裁
+  if (hasFaceOrEyes) {
+    // 眼神与面部微表情：强力归属于主角核心镜头，特写/微距归属人物神态
+    charScore += 4.5;
+    if (/特写|微距/.test(text)) {
+      charScore += 2.0;
+    }
+  } else if (/特写|微距/.test(text)) {
+    // 无人物五官时，特写归属于器物微距
+    propScore += 3.0;
+  }
+
+  if (hasSubjectAction && !hasExplicitPOV) {
+    // 主角在画面中主体行动，防止被环境或动势误判为 POV
+    charScore += 3.5;
+    povScore -= 2.0;
+  } else if (hasExplicitPOV) {
+    povScore += 4.0;
+  }
+
+  // 3. 动态 profile 词法强化
+  if (profile) {
+    // 道具/微观器物强化
+    const attireWords = extractDynamicKeywords(profile.attire_props);
+    for (const word of attireWords) {
+      if (text.includes(word)) {
+        if (!hasFaceOrEyes) {
+          propScore += 3.0;
+        } else {
+          charScore += 1.0;
+        }
+      }
+    }
+
+    // 宏观场景空间强化
+    const envWords = extractDynamicKeywords(profile.era_setting);
+    for (const word of envWords) {
+      if (text.includes(word)) {
+        envScore += 2.5;
+      }
+    }
+
+    // 主角专有锚点词强化
+    const charWords = extractDynamicKeywords(profile.character_anchor);
+    for (const word of charWords) {
+      if (text.includes(word)) {
+        charScore += 2.5;
+      }
     }
   }
 
-  // 3. 主观视点与动态反打判定
-  if (/撞碎|辕门|破阵|掠过|呼啸|迎面|飞沙|惊骇|仓皇|溃散/.test(text) && index !== 0) {
-    return 'pov_antagonist';
+  // 4. 电影蒙太奇镜头节奏调度 (Temporal Montage Pacing Bias)
+  // A. 首镜法则：建立时代宏观空间感 (Establishing Shot)
+  if (index === 0 && envScore >= 3.0 && !hasFaceOrEyes) {
+    envScore += 2.0;
   }
 
-  // 4. 默认：主角叙事与核心动作神态
-  return 'character';
+  // B. 防连续主角疲劳 (Anti-Character Fatigue)
+  // 若前 2 镜都是 character，在下一镜若有微观物件或宏观特征，给予抑制，促成镜头语言呼吸起伏
+  const lastTwo = previousFocusList.slice(-2);
+  const consecutiveCharCount = lastTwo.filter((f) => f === 'character').length;
+  if (consecutiveCharCount >= 2) {
+    charScore -= 2.5;
+    if (propScore >= 2.0) propScore += 2.0;
+    if (envScore >= 2.0) envScore += 2.0;
+  }
+
+  // C. 防连续环境空镜 (Anti-Environment Fatigue)
+  if (previousFocusList.length > 0 && previousFocusList[previousFocusList.length - 1] === 'environment') {
+    envScore -= 3.0;
+  }
+
+  // D. 尾镜余韵法则 (Lingering Shot)
+  if (index === totalShots - 1 && totalShots >= 3 && !hasFaceOrEyes) {
+    if (propScore >= 2.0) propScore += 1.5;
+  }
+
+  // 5. 得分胜出裁决
+  const scores = [
+    { type: 'prop' as const, score: propScore },
+    { type: 'environment' as const, score: envScore },
+    { type: 'pov_antagonist' as const, score: povScore },
+    { type: 'character' as const, score: charScore },
+  ];
+
+  scores.sort((a, b) => b.score - a.score);
+  const top = scores[0];
+
+  // 阈值安全检查：若最高分依然微弱（低于 1.5），默认回退至 character
+  if (top.score < 1.5) {
+    return 'character';
+  }
+
+  return top.type;
 }
 
 /**
@@ -284,9 +451,16 @@ export async function enrichShotsWithAdaptiveVisualDirector(
 ): Promise<Shot[]> {
   const cleanKey = (apiKey || '').trim();
 
-  // 若无 Key 或脱机，使用自适应档案合成提示词
+  // 若无 Key 或脱机，使用自适应档案合成提示词 (维护时序节律状态)
   if (!cleanKey || cleanKey.startsWith('YOUR_') || cleanKey.includes('sk-xxx')) {
-    return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length));
+    const focusHistory: Array<'character' | 'environment' | 'prop' | 'pov_antagonist'> = [];
+    return shots.map((s, idx) => {
+      const synthetic = synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length, focusHistory);
+      if (synthetic.shot_focus) {
+        focusHistory.push(synthetic.shot_focus);
+      }
+      return attachCacheIfAvailable(synthetic);
+    });
   }
 
   try {
@@ -349,15 +523,34 @@ ${JSON.stringify(shotInputs, null, 2)}
 
     if (!res.ok) {
       console.warn('Adaptive Visual Director API failed, using synthetic fallback');
-      return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length));
+      const focusHistory: Array<'character' | 'environment' | 'prop' | 'pov_antagonist'> = [];
+      return shots.map((s, idx) => {
+        const synthetic = synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length, focusHistory);
+        if (synthetic.shot_focus) focusHistory.push(synthetic.shot_focus);
+        return attachCacheIfAvailable(synthetic);
+      });
     }
 
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content?.trim();
-    if (!content) return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length));
+    if (!content) {
+      const focusHistory: Array<'character' | 'environment' | 'prop' | 'pov_antagonist'> = [];
+      return shots.map((s, idx) => {
+        const synthetic = synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length, focusHistory);
+        if (synthetic.shot_focus) focusHistory.push(synthetic.shot_focus);
+        return attachCacheIfAvailable(synthetic);
+      });
+    }
 
     const match = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
-    if (!match) return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length));
+    if (!match) {
+      const focusHistory: Array<'character' | 'environment' | 'prop' | 'pov_antagonist'> = [];
+      return shots.map((s, idx) => {
+        const synthetic = synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length, focusHistory);
+        if (synthetic.shot_focus) focusHistory.push(synthetic.shot_focus);
+        return attachCacheIfAvailable(synthetic);
+      });
+    }
 
     const parsedResults: Array<{
       shot_id: string;
@@ -367,25 +560,36 @@ ${JSON.stringify(shotInputs, null, 2)}
     }> = JSON.parse(match[0]);
     const promptMap = new Map(parsedResults.map((p) => [p.shot_id, p]));
 
+    const focusHistory: Array<'character' | 'environment' | 'prop' | 'pov_antagonist'> = [];
     return shots.map((s, idx) => {
       const enriched = promptMap.get(s.shot_id);
       let targetShot: Shot;
       if (enriched && enriched.t2i_prompt) {
+        const focus =
+          enriched.shot_focus ||
+          detectShotFocusFromText(s.voiceover, idx, shots.length, visualProfile, focusHistory);
+        focusHistory.push(focus);
         targetShot = {
           ...s,
-          shot_focus: enriched.shot_focus || detectShotFocusFromText(s.voiceover, idx, shots.length),
+          shot_focus: focus,
           t2i_prompt: enriched.t2i_prompt,
           i2v_prompt: enriched.i2v_prompt || s.i2v_prompt,
-          character_anchor: visualProfile.character_anchor,
+          character_anchor: focus === 'character' ? visualProfile.character_anchor : undefined,
         };
       } else {
-        targetShot = synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length);
+        targetShot = synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length, focusHistory);
+        if (targetShot.shot_focus) focusHistory.push(targetShot.shot_focus);
       }
       return attachCacheIfAvailable(targetShot);
     });
   } catch (err) {
     console.warn('Enrich shots adaptive error, using synthetic fallback:', err);
-    return shots.map((s, idx) => attachCacheIfAvailable(synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length)));
+    const focusHistory: Array<'character' | 'environment' | 'prop' | 'pov_antagonist'> = [];
+    return shots.map((s, idx) => {
+      const synthetic = synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length, focusHistory);
+      if (synthetic.shot_focus) focusHistory.push(synthetic.shot_focus);
+      return attachCacheIfAvailable(synthetic);
+    });
   }
 }
 
@@ -426,11 +630,14 @@ export function synthesizeShotPromptFromProfile(
   shot: Shot,
   index: number,
   profile: VisualContextProfile,
-  totalShots: number = 4
+  totalShots: number = 4,
+  previousFocusList: Array<'character' | 'environment' | 'prop' | 'pov_antagonist'> = []
 ): Shot {
   const positives = profile.positive_anchors.join(', ');
   const negatives = profile.negative_guardrails.length > 0 ? `(严禁${profile.negative_guardrails.join('、严禁')})` : '';
-  const focus = shot.shot_focus || detectShotFocusFromText(shot.voiceover, index, totalShots);
+  const focus =
+    shot.shot_focus ||
+    detectShotFocusFromText(shot.voiceover, index, totalShots, profile, previousFocusList);
 
   let t2i = '';
   if (focus === 'environment') {
