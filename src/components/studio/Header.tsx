@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
               isKeyConfigured ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
             }`}
           ></span>
-          <span>{isKeyConfigured ? '百炼 API 就绪' : '未配置百炼 Key (点击配置)'}</span>
+          <span>{isKeyConfigured ? 'AI 引擎就绪' : '未配置 API 密钥 (点击配置)'}</span>
         </div>
         <button
           onClick={onOpenConfig}

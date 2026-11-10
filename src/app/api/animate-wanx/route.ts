@@ -48,13 +48,21 @@ export async function POST(req: NextRequest) {
     const resolution = rawResolution.toLowerCase().includes('720') ? '720P' : rawResolution.toUpperCase();
     const promptExtend = config.dashscope.video?.prompt_extend ?? false;
 
-    // 智能解析首帧图片地址：
-    // 1. 如果本地存在该图片（或通过文件名在 output/images 找到），优先上传至百炼临时 OSS (oss://...)
-    // 2. 如果是远程公网 URL，进行快速可用性探测；若已失效则提示重新抽卡
+    // 智能解析首帧图片地址 (本地优先原则)：
+    // 1. 优先在本地 output/images/ 检索对应 shotId.png 或 cleanPath 本地文件
+    // 2. 本地文件上传至百炼专属临时存储换取 oss:// 链接 (零 403 风险，官方推荐最高优先级方案)
+    // 3. 若本地无备份但存在远程公网链接，以 GET 方式拉取并持久化至本地，再执行上传，形成双重防灾
     let finalImageUrl = imageUrl.trim();
+    const cleanUrlPath = finalImageUrl.split('?')[0];
 
-    // 尝试寻找本地文件备份
-    const localDiskFile = findLocalFile(finalImageUrl);
+    let localDiskFile: string | null = null;
+    if (shotId) {
+      localDiskFile = findLocalFile(`output/images/${shotId}.png`);
+    }
+    if (!localDiskFile) {
+      localDiskFile = findLocalFile(cleanUrlPath);
+    }
+
     if (localDiskFile) {
       console.log(`[AnimateWanx] 找到首帧本地文件 ${localDiskFile}，上传至百炼临时存储...`);
       finalImageUrl = await uploadLocalFileToDashScopeOss(localDiskFile, apiKey, videoModel);
@@ -62,7 +70,7 @@ export async function POST(req: NextRequest) {
       if (finalImageUrl.includes('localhost') || finalImageUrl.includes('127.0.0.1')) {
         try {
           const parsedUrl = new URL(finalImageUrl);
-          const localFromUrl = findLocalFile(parsedUrl.pathname);
+          const localFromUrl = findLocalFile(parsedUrl.pathname.split('?')[0]);
           if (localFromUrl) {
             finalImageUrl = await uploadLocalFileToDashScopeOss(localFromUrl, apiKey, videoModel);
           } else {
@@ -75,17 +83,22 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: `无效的图片 URL: ${finalImageUrl}` }, { status: 400 });
         }
       } else {
-        // 远程外部链接：探测是否有效
+        // 远程外部链接：以 GET 方式直接下载并缓存到本地，再上传至百炼临时存储
         try {
-          const probeRes = await fetch(finalImageUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-          if (!probeRes.ok && probeRes.status !== 405) {
-            return NextResponse.json(
-              { error: `首帧图网络链接已失效 (HTTP ${probeRes.status})，请在分镜卡片重新点击“生图”生成首帧图。` },
-              { status: 400 }
-            );
+          console.log(`[AnimateWanx] 尝试下载远程首帧图并落盘缓存: ${finalImageUrl}`);
+          const imgDownloadRes = await fetch(finalImageUrl);
+          if (imgDownloadRes.ok) {
+            const imgBuffer = Buffer.from(await imgDownloadRes.arrayBuffer());
+            const targetSaveDir = path.resolve(process.cwd(), 'output', 'images');
+            fs.mkdirSync(targetSaveDir, { recursive: true });
+            const savedLocalPath = path.join(targetSaveDir, `${shotId || 'shot'}.png`);
+            fs.writeFileSync(savedLocalPath, imgBuffer);
+            finalImageUrl = await uploadLocalFileToDashScopeOss(savedLocalPath, apiKey, videoModel);
+          } else {
+            console.warn(`[AnimateWanx] 远程下载返回 HTTP ${imgDownloadRes.status}，直接尝试传递原始 URL`);
           }
-        } catch (probeErr: any) {
-          console.warn('[AnimateWanx] 远程首帧图预检探测异常:', probeErr?.message);
+        } catch (fetchErr: any) {
+          console.warn('[AnimateWanx] 下载远程首帧图异常，回退传递原始 URL:', fetchErr?.message);
         }
       }
     } else if (!finalImageUrl.startsWith('oss://')) {

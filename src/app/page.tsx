@@ -225,7 +225,7 @@ export default function StoryStudioWeb() {
     }
 
     setIsProcessing(true);
-    showToast(force ? '正在强制重新请求阿里云百炼合成配音...' : '正在请求阿里云百炼 CosyVoice 合成配音...', 'info');
+    showToast(force ? '正在强制重新合成配音与识别时间戳...' : '正在调用高品质语音引擎合成配音...', 'info');
 
     try {
       // 请求 TTS
@@ -250,7 +250,7 @@ export default function StoryStudioWeb() {
       } else {
         showToast(
           asrProvider === 'dashscope_asr'
-            ? '配音合成就绪，正在调用百炼 Qwen-Audio ASR 提取毫秒级时间戳...'
+            ? '配音合成就绪，正在调用高精度 ASR 提取毫秒级时间戳...'
             : '配音合成就绪，正在连接 faster-whisper-server 提取毫秒级时间戳...',
           'info'
         );
@@ -291,10 +291,10 @@ export default function StoryStudioWeb() {
     }
   };
 
-  // 2. 真实调用通义万相重新生图 (支持内容哈希缓存快速复用与 force 强制刷新)
+  // 2. 真实调用 AI 模型绘制首帧 (支持内容哈希缓存快速复用与 force 强制刷新)
   const handleRegenerateWanx = async (shotId: string, prompt: string, force: boolean = false) => {
     setGeneratingImageShotId(shotId);
-    showToast(force ? `正在重新调用通义万相绘制 ${shotId} 首帧...` : `正在绘制 ${shotId} 首帧...`, 'info');
+    showToast(force ? `正在重新调用 AI 引擎绘制 ${shotId} 首帧...` : `正在绘制 ${shotId} 首帧...`, 'info');
     try {
       const res = await fetch('/api/wanx', {
         method: 'POST',
@@ -304,12 +304,17 @@ export default function StoryStudioWeb() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '生图失败');
 
+      // 附加时间戳防缓存 query，确保浏览器立即刷新视图，不命中 Disk Cache
+      const freshDisplayUrl = data.imageUrl?.startsWith('/output/')
+        ? `${data.imageUrl.split('?')[0]}?t=${Date.now()}`
+        : data.imageUrl;
+
       setShots((prev) =>
         prev.map((s) =>
           s.shot_id === shotId
             ? {
                 ...s,
-                keyframe_image: data.imageUrl,
+                keyframe_image: freshDisplayUrl,
                 remote_image_url: data.remoteUrl || data.imageUrl,
                 status: 'ready',
               }
@@ -323,7 +328,7 @@ export default function StoryStudioWeb() {
         'success'
       );
     } catch (e: any) {
-      showToast(`万相生图失败: ${e.message}`, 'error');
+      showToast(`AI 首帧绘制失败: ${e.message}`, 'error');
     } finally {
       setGeneratingImageShotId(null);
     }
@@ -360,12 +365,16 @@ export default function StoryStudioWeb() {
         const data = await res.json();
         if (res.ok && data.imageUrl) {
           if (data.cached) cachedCount++;
+          const freshDisplayUrl = data.imageUrl?.startsWith('/output/')
+            ? `${data.imageUrl.split('?')[0]}?t=${Date.now()}`
+            : data.imageUrl;
+
           setShots((prev) =>
             prev.map((s) =>
               s.shot_id === targetShot.shot_id
                 ? {
                     ...s,
-                    keyframe_image: data.imageUrl,
+                    keyframe_image: freshDisplayUrl,
                     remote_image_url: data.remoteUrl || data.imageUrl,
                     status: 'ready',
                   }
@@ -445,24 +454,25 @@ export default function StoryStudioWeb() {
     }
   };
 
-  // 融合功能 4: 百炼 DashScope 全自动闭环动画生成 (异步轮询直出)
+  // 融合功能 4: AI 动力学动画驱动生成 (异步轮询切片直出)
   const handleAnimateWanx = async (shot: Shot) => {
     setAnimatingShotId(shot.shot_id);
-    showToast(`正在提交百炼 wanx2.1-i2v 任务并开启异步轮询直出...`, 'info');
+    showToast(`正在提交 AI 动力学视频生成任务并开启异步轮询直出...`, 'info');
 
     try {
+      const selectedImg = (shot.keyframe_image || shot.remote_image_url || '').split('?')[0];
       const res = await fetch('/api/animate-wanx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           shotId: shot.shot_id,
-          imageUrl: shot.remote_image_url || shot.keyframe_image,
+          imageUrl: selectedImg,
           prompt: shot.i2v_prompt,
           duration: Math.round(shot.target_duration_sec),
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '百炼视频生成失败');
+      if (!res.ok) throw new Error(data.error || 'AI 视频切片生成失败');
 
       setShots((prev) =>
         prev.map((s) =>

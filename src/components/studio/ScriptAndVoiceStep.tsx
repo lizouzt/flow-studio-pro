@@ -225,7 +225,7 @@ export const ScriptAndVoiceStep: React.FC<ScriptAndVoiceStepProps> = ({
 
         <div className="flex justify-between items-center pt-1">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">将基于定稿文案调用阿里云百炼 CosyVoice 录制</span>
+            <span className="text-xs text-gray-500">基于定稿文案调用高品质语音引擎录制</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
               ⚡内容指纹秒级缓存
             </span>
@@ -236,7 +236,7 @@ export const ScriptAndVoiceStep: React.FC<ScriptAndVoiceStepProps> = ({
                 type="button"
                 disabled={isProcessing}
                 onClick={() => onGenerateTTSAndASR(true)}
-                title="强制穿透缓存，重新调用百炼合成配音与识别时间戳"
+                title="强制穿透缓存，重新合成配音与对齐时间戳"
                 className="px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 hover:text-white text-xs border border-white/10 flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
@@ -249,28 +249,28 @@ export const ScriptAndVoiceStep: React.FC<ScriptAndVoiceStepProps> = ({
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-semibold text-xs shadow-lg shadow-amber-500/20 flex items-center gap-2 transition active:scale-95 disabled:opacity-50"
             >
               <Mic className="w-4 h-4" />
-              {isProcessing ? '正在真实处理中...' : '生成百炼配音与时间戳'}
+              {isProcessing ? '正在真实处理中...' : '生成 AI 配音与时间戳'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* 右侧：百炼调音台 */}
+      {/* 右侧：AI 调音台 */}
       <div className="col-span-12 lg:col-span-5 flex flex-col gap-6">
         <div className="glass-panel rounded-2xl p-6 flex flex-col gap-5">
           <div className="flex items-center justify-between border-b border-brand-border pb-3">
             <div className="flex items-center gap-2">
               <Sliders className="w-4 h-4 text-amber-400" />
-              <h2 className="text-sm font-semibold text-white">百炼 CosyVoice 调音台</h2>
+              <h2 className="text-sm font-semibold text-white">AI 语音调音台</h2>
             </div>
             <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              DashScope V3
+              AI Voice Ready
             </span>
           </div>
 
           {/* 音色卡片 */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-2">选择主播音色 (CosyVoice v3)</label>
+            <label className="block text-xs font-medium text-gray-400 mb-2">选择主播音色</label>
             <div className="grid grid-cols-2 gap-2.5">
               <div
                 onClick={() => setSelectedVoice('longanyang')}

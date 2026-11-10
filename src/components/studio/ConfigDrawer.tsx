@@ -66,7 +66,7 @@ export const ConfigDrawer: React.FC<ConfigDrawerProps> = ({
               <div className="flex flex-col gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-300 mb-1">
-                    阿里云百炼 API Key <span className="text-amber-400">*</span>
+                    AI 引擎服务密钥 (API Key) <span className="text-amber-400">*</span>
                   </label>
                   <input
                     type="password"
@@ -75,7 +75,7 @@ export const ConfigDrawer: React.FC<ConfigDrawerProps> = ({
                     onChange={(e) => setDashscopeApiKey(e.target.value)}
                     className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
                   />
-                  <p className="text-[10px] text-gray-500 mt-1">用于 CosyVoice 语音大模型合成与通义万相首帧生图</p>
+                  <p className="text-[10px] text-gray-500 mt-1">支持接入百炼 DashScope、Deepdance、Gemini、Stable Diffusion 等标准化三方多模态驱动</p>
                 </div>
 
                 {/* ASR 语音识别引擎驱动切换 */}
@@ -88,21 +88,21 @@ export const ConfigDrawer: React.FC<ConfigDrawerProps> = ({
                     onChange={(e) => setAsrProvider(e.target.value as any)}
                     className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-amber-500"
                   >
-                    <option value="dashscope_asr">🌟 阿里云百炼原生 (qwen-audio-3.1-asr-flash-filetrans · 免显卡/免部署)</option>
+                    <option value="dashscope_asr">🌟 云端托管高精识别 (qwen-audio-3.1-asr · 免本地显卡/免部署)</option>
                     <option value="faster_whisper">⚡ faster-whisper-server (本地/局域网私有化服务)</option>
                     <option value="custom_whisper">🌐 自定义 OpenAI 兼容 Whisper 端点</option>
                   </select>
                   <p className="text-[10px] text-gray-500 mt-1">
                     {asrProvider === 'dashscope_asr'
-                      ? '复用上方百炼 Key，自动通过临时存储解析毫秒级时间戳，完全无需本地显卡与额外服务。'
-                      : '通过 OpenAI 规范 (POST /v1/audio/transcriptions) 接入本地或云端服务。'}
+                      ? '复用上方云端 Key，自动通过临时存储解析毫秒级时间戳，完全无需本地显卡与额外服务。'
+                      : '通过标准 OpenAI 规范 (POST /v1/audio/transcriptions) 接入本地或云端服务。'}
                   </p>
                 </div>
 
                 {asrProvider === 'dashscope_asr' ? (
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 mb-1">
-                      百炼 ASR 模型名称
+                      ASR 语音转写模型标识
                     </label>
                     <input
                       type="text"
@@ -112,7 +112,7 @@ export const ConfigDrawer: React.FC<ConfigDrawerProps> = ({
                       className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
                     />
                     <p className="text-[10px] text-gray-500 mt-1">
-                      推荐：<code className="text-amber-400">qwen-audio-3.1-asr-flash-filetrans</code> (官方旗舰非实时转写) 或 <code className="text-amber-400">paraformer-v2</code>
+                      推荐：<code className="text-amber-400">qwen-audio-3.1-asr-flash-filetrans</code> (旗舰非实时转写) 或 <code className="text-amber-400">paraformer-v2</code>
                     </p>
                   </div>
                 ) : (

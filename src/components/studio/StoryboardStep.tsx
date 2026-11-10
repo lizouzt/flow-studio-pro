@@ -58,6 +58,15 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
   const [imageErrors, setImageErrors] = useState<{ [shotId: string]: boolean }>({});
   const [activePromptTabs, setActivePromptTabs] = useState<{ [shotId: string]: 't2i' | 'i2v' }>({});
 
+  const triggerRegenerate = (shotId: string, prompt: string, force: boolean) => {
+    setImageErrors((prev) => {
+      const next = { ...prev };
+      delete next[shotId];
+      return next;
+    });
+    onRegenerateWanx(shotId, prompt, force);
+  };
+
   if (shots.length === 0) {
     return (
       /* 空状态引导 */
@@ -68,7 +77,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
         <div>
           <h3 className="text-base font-semibold text-white">暂无生成的分镜内容</h3>
           <p className="text-xs text-gray-400 mt-1 max-w-sm">
-            系统已完全移除默认 Mock 模拟数据。请先在第一步中输入您的口播文稿，并点击“生成百炼配音与时间戳”。
+            请先在第一步中输入您的口播文稿，并点击“生成 AI 配音与时间戳”。
           </p>
         </div>
         <button
@@ -128,7 +137,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>🎨 一键生成全部首帧 (通义万相)</span>
+                  <span>🎨 一键生成全部首帧 (AI 生图)</span>
                 </>
               )}
             </button>
@@ -172,15 +181,16 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                     <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-3 animate-pulse">
                       <Loader2 className="w-6 h-6 animate-spin" />
                     </div>
-                    <span className="text-xs font-semibold text-amber-300">通义万相正在生图...</span>
+                    <span className="text-xs font-semibold text-amber-300">AI 正在绘制首帧...</span>
                     <span className="text-[10px] text-gray-400 mt-1 max-w-[160px] line-clamp-2">
-                      Wanx 2.1 正在绘制 720x1280 首帧画面
+                      正在生成 720x1280 电影级首帧画面
                     </span>
                   </div>
                 ) : hasImage ? (
-                  /* 已生成首帧图像 */
+                  /* 已生成首帧图像 (带防强缓存 key 与时间戳) */
                   <>
                     <img
+                      key={shot.keyframe_image}
                       src={shot.keyframe_image}
                       alt={shot.shot_id}
                       className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
@@ -204,11 +214,11 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                     </span>
                     <button
                       disabled={isBatchGeneratingImages || isGeneratingImg}
-                      onClick={() => onRegenerateWanx(shot.shot_id, currentT2i, false)}
+                      onClick={() => triggerRegenerate(shot.shot_id, currentT2i, false)}
                       className="mt-3 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/10 hover:scale-[1.02] transition disabled:opacity-50"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      绘制首帧 (万相)
+                      绘制首帧 (AI 生图)
                     </button>
                     <div className="absolute bottom-2 left-2 right-2 flex justify-center">
                       <span className="text-[9px] text-gray-400/80 font-mono truncate">
@@ -230,14 +240,14 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                   <button
                     disabled={animatingShotId === shot.shot_id}
                     onClick={() => onAnimateWanx(shot)}
-                    title="百炼全自动生成视频切片 (异步轮询直出)"
+                    title="生成视频切片 (AI 动画驱动)"
                     className="p-1.5 rounded-lg bg-black/70 backdrop-blur hover:bg-amber-500 hover:text-black text-amber-300 text-xs transition"
                   >
                     <Zap className={`w-3.5 h-3.5 ${animatingShotId === shot.shot_id ? 'animate-spin' : ''}`} />
                   </button>
                   <button
                     disabled={isGeneratingImg}
-                    onClick={() => onRegenerateWanx(shot.shot_id, currentT2i, true)}
+                    onClick={() => triggerRegenerate(shot.shot_id, currentT2i, true)}
                     title="强制重新生成首帧 (绕过缓存，抽取全新画面)"
                     className="p-1.5 rounded-lg bg-black/70 backdrop-blur hover:bg-blue-500 hover:text-black text-white text-xs transition"
                   >

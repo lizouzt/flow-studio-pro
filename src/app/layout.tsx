@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Flow Studio Pro · 电影工业级真实视频流工作台',
-  description: '从选题文案、百炼TTS、ASR对齐、通义万相首帧生图、I2V视频动力学到剪映专业版草稿的一站式电影级工作台',
+  description: '从选题文案、AI语音合成、ASR对齐、电影级首帧渲染、I2V视频动力学到剪映专业版草稿的一站式电影级工作台',
 };
 
 export default function RootLayout({

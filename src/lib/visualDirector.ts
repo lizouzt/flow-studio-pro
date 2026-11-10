@@ -7,6 +7,32 @@ import { Shot, VisualContextProfile } from '@/types';
 export function extractVisualContextByRules(text: string = '', topic: string = ''): VisualContextProfile {
   const combined = `${topic} ${text}`.toLowerCase();
 
+  // 0. 识别特定现代/历史知名公众人物（提供绝对人物主权锁，严防角色漂移与人物混淆）
+  const isTrump = /特朗普|川普|trump/i.test(combined);
+  if (isTrump) {
+    return {
+      era_setting: '当代美国真实都市、豪华庄园与政商名流社交场景，落地窗城市天际线、高端晚宴与雅致室内',
+      character_anchor: '唐纳德·特朗普 (Donald Trump)，标志性淡金色偏分发型，经典面容轮廓与自信从容神态，身形魁梧高大',
+      attire_props: '剪裁得体的深蓝色高级定制西装、标志性鲜亮纯红色领带、纯白衬衫与金质袖扣',
+      art_style: '现代纪实人物传记电影质感，电影级柔和人物肖像光影，通透肤色与细腻真实质感，9:16竖屏短视频构图',
+      positive_anchors: [
+        '唐纳德·特朗普 (Donald Trump) 真实肖像',
+        '标志性淡金色偏分发型',
+        '经典深色西装搭配红领带',
+        '好莱坞人物传记电影光影',
+        '8k真实质感高清人物细节',
+      ],
+      negative_guardrails: [
+        '约瑟夫·拜登 (Joe Biden)',
+        '贝拉克·奥巴马 (Barack Obama)',
+        '其他政治人物或混淆面孔',
+        '古装冷兵器铠甲',
+        '中世纪欧洲骑士',
+        '卡通动漫夸张变形',
+      ],
+    };
+  }
+
   // 1. 中国古代/古装历史场景识别
   const isAncientChinese =
     /朝代|南宋|北宋|唐朝|大唐|明朝|大明|清朝|秦朝|汉朝|三国|春秋|战国|古代|江湖|策马|金戈铁马|武将|将军|夜袭|敌阵|敌营|三尺青锋|汉剑|长枪|甲胄|铁甲|营寨|临安|长安|洛阳|皇宫|军帐|旌旗/.test(
@@ -170,12 +196,12 @@ export async function analyzeVisualContext(
 你的任务是根据输入的【创作题材】和【完整口播逐字稿】，深入分析并提取出高度精准的《视觉世界观设定档案 (VisualContextProfile)》。
 
 【必须分析输出的 6 项要素】：
-1. era_setting: 故事发生的准确时代背景、历史朝代、纪元或场景定位（如“中国南宋绍兴年间，古代沙场与军营”或“1980年代美国硅谷初创车库”）；
-2. character_anchor: 主角的年龄、性别、人种/面孔特征、体态与神韵；
-3. attire_props: 符合该时代历史真实或题材特性的服饰、铠甲/服装、武器/随身道具；
-4. art_style: 契合该题材氛围的统一美术画风（必须声明 9:16 竖屏构图与电影级戏剧光影）；
-5. positive_anchors: 4~6 个必须强化的正向核心视觉词（确保生图模型不偏离时代文化）；
-6. negative_guardrails: 4~6 个与该时代严重冲突、极易被生图模型误加的负向排斥词（例如中国古代题材必须自动排斥西方中世纪欧洲、现代电器；现代都市题材必须自动排斥古代盔甲与冷兵器）。
+1. era_setting: 故事发生的准确时代背景、历史朝代、纪元或真实场景定位；
+2. character_anchor: 核心主角的专有人物姓名、标志性五官轮廓、发型、体态与神韵。若故事涉及具体知名人物（如唐纳德·特朗普、辛弃疾、拿破仑等），必须精确锁定该人物的姓名与其不可替代的特征外观（例如特朗普必须锁定淡金色偏分发型、特有面容、自信果决神情），严禁泛化！
+3. attire_props: 符合该时代历史真实或题材特性的服饰、道具（例如特朗普必须锁定经典深色西装搭配亮红色领带与白色衬衫）；
+4. art_style: 契合该题材氛围的统一美术画风（必须声明 9:16 竖屏短视频构图与电影级戏剧光影）；
+5. positive_anchors: 4~6 个必须强化的正向核心视觉词（必须包含主角专有肖像特征词，确保生图模型不偏离）；
+6. negative_guardrails: 4~6 个与该时代或该主角严重冲突、极易被生图模型误加的负向排斥词。若主角是特定名人（如特朗普），必须显式排斥其他公众人物（例如负向必须包含“严禁出现约瑟夫·拜登 (Joe Biden)、奥巴马等其他政治人物，严禁混淆主角面孔”；若为中国古装必须排斥西方骑士与现代人）！
 
 【格式要求】：只输出标准的 JSON 对象，格式如下：
 {
@@ -262,7 +288,7 @@ export async function enrichShotsWithAdaptiveVisualDirector(
       camera_motion: s.camera_motion,
     }));
 
-    const systemPrompt = `你是一位精通分镜美术设计的视觉导演。
+    const systemPrompt = `你是一位精通分镜美术设计的顶级视觉导演。
 系统已对用户文稿完成了全局世界观分析，提取出如下《视觉设定档案》：
 ------------------------
 【时代与环境】：${visualProfile.era_setting}
@@ -273,10 +299,12 @@ export async function enrichShotsWithAdaptiveVisualDirector(
 【负向排斥词】：${visualProfile.negative_guardrails.join(', ')}
 ------------------------
 
-【你的任务】：
-严格依据上述《视觉设定档案》，针对每个镜头的解说词（voiceover），生成两组专属提示词：
-1. t2i_prompt: 通义万相 2.1 文生图描述。必须将主角人设、时代服饰环境、本镜头戏剧动势、光影景别完美融合，文末附带正向词与负向排斥词；
-2. i2v_prompt: 通义万相视频运动提示词，描述摄像机机位与画中主体的物理动力学微动。
+【你的绝对纪律（Character Consistency Lock）】：
+1. 【主角绝对一致性】：全部分镜中的核心主角必须严格保持与《视觉设定档案》中的【主角人设锚点】完全同一！绝对禁止在任意分镜中擅自更换主角面孔、姓名或引入其他现实公众人物（例如故事主角是特朗普时，全篇镜头均围绕特朗普展现，严禁任何镜头出现拜登、奥巴马等无关人物）！
+2. 【分镜主角锁头锚定】：在每个镜头的 t2i_prompt 开头，必须显式指明【${visualProfile.character_anchor}】，并描绘该主角在本镜头的动作、情绪与环境互动！
+3. 【两组专属提示词】：
+   - t2i_prompt: AI 文生图描述。主体人物特征（置于最前）+ 本镜头情节动势与景别 + 服饰环境 + 美术风格 + 正向词 + (严禁负向词)；
+   - i2v_prompt: 视频动态运动描述，包含镜头运镜机位与画中人物自然微动。
 
 【格式要求】：只输出标准的 JSON 数组，每个对象包含 shot_id, t2i_prompt, i2v_prompt。`;
 
