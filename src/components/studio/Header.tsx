@@ -14,8 +14,8 @@ interface HeaderProps {
 const STEPS = [
   { step: 1, label: '撰稿与配音' },
   { step: 2, label: '分镜与首帧' },
-  { step: 3, label: '视频回填' },
-  { step: 4, label: '剪映装配' },
+  { step: 3, label: '外部回填 (可选)' },
+  { step: 4, label: '成片交付' },
 ];
 
 export const Header: React.FC<HeaderProps> = ({

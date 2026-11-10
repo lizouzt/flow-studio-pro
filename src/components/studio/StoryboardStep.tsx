@@ -29,6 +29,7 @@ interface StoryboardStepProps {
   isPolishingPrompts?: boolean;
   criticReviewData: { [shotId: string]: any };
   onGoToScript: () => void;
+  onGoToDelivery?: () => void;
   onCriticInspect: (shot: Shot) => void;
   onAnimateWanx: (shot: Shot) => void;
   onRegenerateWanx: (shotId: string, prompt: string, force?: boolean) => void;
@@ -50,6 +51,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
   isPolishingPrompts = false,
   criticReviewData,
   onGoToScript,
+  onGoToDelivery,
   onCriticInspect,
   onAnimateWanx,
   onRegenerateWanx,
@@ -61,6 +63,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
 }) => {
   const [imageErrors, setImageErrors] = useState<{ [shotId: string]: boolean }>({});
   const [activePromptTabs, setActivePromptTabs] = useState<{ [shotId: string]: 't2i' | 'i2v' }>({});
+  const videoReadyCount = shots.filter((s) => Boolean(s.rendered_video_path)).length;
 
   const triggerRegenerate = (shotId: string, prompt: string, force: boolean) => {
     setImageErrors((prev) => {
@@ -159,6 +162,23 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
           >
             <Download className="w-3.5 h-3.5" /> 打包下载首帧图 (ZIP)
           </button>
+
+          {onGoToDelivery && (
+            <button
+              onClick={onGoToDelivery}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md ${
+                videoReadyCount > 0
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 text-black shadow-emerald-500/20'
+                  : 'bg-white/[0.08] hover:bg-white/[0.12] text-amber-300 border border-amber-500/30'
+              }`}
+            >
+              <Film className="w-3.5 h-3.5" />
+              <span>
+                前往成片交付 (剪映/1080p)
+                {videoReadyCount > 0 ? ` (${videoReadyCount}/${shots.length}就绪)` : ''} ➔
+              </span>
+            </button>
+          )}
         </div>
       </div>
 

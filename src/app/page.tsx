@@ -856,6 +856,7 @@ export default function StoryStudioWeb() {
                 isPolishingPrompts={isPolishingPrompts}
                 criticReviewData={criticReviewData}
                 onGoToScript={() => setCurrentStep(1)}
+                onGoToDelivery={() => setCurrentStep(4)}
                 onCriticInspect={handleCriticInspect}
                 onAnimateWanx={handleAnimateWanx}
                 onRegenerateWanx={handleRegenerateWanx}
