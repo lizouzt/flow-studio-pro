@@ -65,17 +65,29 @@ export const ConfigDrawer: React.FC<ConfigDrawerProps> = ({
 
               <div className="flex flex-col gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1">
-                    AI 引擎服务密钥 (API Key) <span className="text-amber-400">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-gray-300">
+                      AI 引擎服务密钥 (API Key) <span className="text-amber-400">*</span>
+                    </label>
+                    {dashscopeApiKey && dashscopeApiKey.includes('•') && (
+                      <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                        已安全配置 (已脱敏)
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="password"
                     placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
                     value={dashscopeApiKey}
+                    onFocus={() => {
+                      if (dashscopeApiKey.includes('•')) {
+                        setDashscopeApiKey('');
+                      }
+                    }}
                     onChange={(e) => setDashscopeApiKey(e.target.value)}
                     className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
                   />
-                  <p className="text-[10px] text-gray-500 mt-1">支持接入百炼 DashScope、Deepdance、Gemini、Stable Diffusion 等标准化三方多模态驱动</p>
+                  <p className="text-[10px] text-gray-500 mt-1">支持接入百炼 DashScope、Deepdance、Gemini、Stable Diffusion 等标准化三方多模态驱动（密钥已安全脱敏）</p>
                 </div>
 
                 {/* ASR 语音识别引擎驱动切换 */}
@@ -134,13 +146,25 @@ export const ConfigDrawer: React.FC<ConfigDrawerProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-300 mb-1">
-                        Whisper API Key (可选)
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-gray-300">
+                          Whisper API Key (可选)
+                        </label>
+                        {asrApiKey && asrApiKey.includes('•') && (
+                          <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                            已安全配置 (已脱敏)
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="password"
                         placeholder="若本地 faster-whisper-server 无鉴权可留空"
                         value={asrApiKey}
+                        onFocus={() => {
+                          if (asrApiKey.includes('•')) {
+                            setAsrApiKey('');
+                          }
+                        }}
                         onChange={(e) => setAsrApiKey(e.target.value)}
                         className="w-full bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
                       />

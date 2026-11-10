@@ -108,7 +108,7 @@ export function aggregateCuesToShots(
         camera_motion: cameraMotionDesc,
         subject_action: motion.action_en,
         i2v_prompt: `${motion.camera_en}. The subject in the reference image performs ${motion.action_en}, cinematic ${styleName}, photorealistic, dramatic lighting, 24fps, high quality`,
-        rendered_video_path: `/output/videos/${shotId}.mp4`,
+        rendered_video_path: undefined,
         status: 'pending'
       };
 

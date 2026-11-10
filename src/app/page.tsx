@@ -82,9 +82,11 @@ export default function StoryStudioWeb() {
           if (data.config.ttsVoice) setSelectedVoice(data.config.ttsVoice);
           if (data.config.speechRate) setSpeechRate(data.config.speechRate);
           const valid = Boolean(
-            data.config.dashscopeApiKey &&
-            !data.config.dashscopeApiKey.startsWith('YOUR_') &&
-            !data.config.dashscopeApiKey.includes('sk-xxx')
+            data.config.hasDashscopeApiKey || (
+              data.config.dashscopeApiKey &&
+              !data.config.dashscopeApiKey.startsWith('YOUR_') &&
+              !data.config.dashscopeApiKey.includes('sk-xxx')
+            )
           );
           setIsKeyConfigured(valid);
         }
