@@ -48,10 +48,11 @@ export async function POST(req: NextRequest) {
     const resolution = rawResolution.toLowerCase().includes('720') ? '720P' : rawResolution.toUpperCase();
     const promptExtend = config.dashscope.video?.prompt_extend ?? false;
 
-    // 智能解析首帧图片地址 (本地优先原则)：
-    // 1. 优先在本地 output/images/ 检索对应 shotId.png 或 cleanPath 本地文件
-    // 2. 本地文件上传至百炼专属临时存储换取 oss:// 链接 (零 403 风险，官方推荐最高优先级方案)
-    // 3. 若本地无备份但存在远程公网链接，以 GET 方式拉取并持久化至本地，再执行上传，形成双重防灾
+    // 智能解析首帧图片地址：
+    // 阿里云百炼 Wanx 图生视频 API 官方规范：
+    // 1. 本地图片：直接转换为标准 Data URI (data:image/png;base64,{base64_data})，百炼官方原生支持，免去任何云端存储中转与防盗链风险！
+    // 2. 远程公网图片：优先下载为 Buffer 转换为 Data URI 传入，若网络异常回退至原始公开 HTTP 链接；
+    // 3. input 中严格只传官方声明参数 img_url，严禁传入任何多余键（如 image_url 会直接导致 Data Inspection 崩溃报 400）。
     let finalImageUrl = imageUrl.trim();
     const cleanUrlPath = finalImageUrl.split('?')[0];
 
@@ -64,15 +65,21 @@ export async function POST(req: NextRequest) {
     }
 
     if (localDiskFile) {
-      console.log(`[AnimateWanx] 找到首帧本地文件 ${localDiskFile}，上传至百炼临时存储...`);
-      finalImageUrl = await uploadLocalFileToDashScopeOss(localDiskFile, apiKey, videoModel);
+      console.log(`[AnimateWanx] 命中首帧本地文件 ${localDiskFile}，转换为官方标准 Base64 Data URI...`);
+      const fileBuffer = fs.readFileSync(localDiskFile);
+      const ext = path.extname(localDiskFile).toLowerCase();
+      const mime = (ext === '.jpg' || ext === '.jpeg') ? 'image/jpeg' : (ext === '.webp' ? 'image/webp' : 'image/png');
+      finalImageUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
     } else if (finalImageUrl.startsWith('http://') || finalImageUrl.startsWith('https://')) {
       if (finalImageUrl.includes('localhost') || finalImageUrl.includes('127.0.0.1')) {
         try {
           const parsedUrl = new URL(finalImageUrl);
           const localFromUrl = findLocalFile(parsedUrl.pathname.split('?')[0]);
           if (localFromUrl) {
-            finalImageUrl = await uploadLocalFileToDashScopeOss(localFromUrl, apiKey, videoModel);
+            const fileBuffer = fs.readFileSync(localFromUrl);
+            const ext = path.extname(localFromUrl).toLowerCase();
+            const mime = (ext === '.jpg' || ext === '.jpeg') ? 'image/jpeg' : (ext === '.webp' ? 'image/webp' : 'image/png');
+            finalImageUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
           } else {
             return NextResponse.json(
               { error: `本地开发服务器图片不存在，请先重新生成该分镜首帧图: ${finalImageUrl}` },
@@ -83,9 +90,9 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: `无效的图片 URL: ${finalImageUrl}` }, { status: 400 });
         }
       } else {
-        // 远程外部链接：以 GET 方式直接下载并缓存到本地，再上传至百炼临时存储
+        // 远程外部链接：以 GET 方式直接下载并转为 Data URI，确保百炼零跨域下载风险
         try {
-          console.log(`[AnimateWanx] 尝试下载远程首帧图并落盘缓存: ${finalImageUrl}`);
+          console.log(`[AnimateWanx] 尝试下载远程首帧图并转为 Data URI: ${finalImageUrl}`);
           const imgDownloadRes = await fetch(finalImageUrl);
           if (imgDownloadRes.ok) {
             const imgBuffer = Buffer.from(await imgDownloadRes.arrayBuffer());
@@ -93,15 +100,15 @@ export async function POST(req: NextRequest) {
             fs.mkdirSync(targetSaveDir, { recursive: true });
             const savedLocalPath = path.join(targetSaveDir, `${shotId || 'shot'}.png`);
             fs.writeFileSync(savedLocalPath, imgBuffer);
-            finalImageUrl = await uploadLocalFileToDashScopeOss(savedLocalPath, apiKey, videoModel);
+            finalImageUrl = `data:image/png;base64,${imgBuffer.toString('base64')}`;
           } else {
-            console.warn(`[AnimateWanx] 远程下载返回 HTTP ${imgDownloadRes.status}，直接尝试传递原始 URL`);
+            console.warn(`[AnimateWanx] 远程下载返回 HTTP ${imgDownloadRes.status}，直接传递原始 URL`);
           }
         } catch (fetchErr: any) {
           console.warn('[AnimateWanx] 下载远程首帧图异常，回退传递原始 URL:', fetchErr?.message);
         }
       }
-    } else if (!finalImageUrl.startsWith('oss://')) {
+    } else if (!finalImageUrl.startsWith('data:image/')) {
       return NextResponse.json(
         { error: `找不到首帧图片对应的本地文件，请先点击分镜卡片生成首帧图: ${finalImageUrl}` },
         { status: 400 }
@@ -113,7 +120,6 @@ export async function POST(req: NextRequest) {
       model: videoModel,
       input: {
         img_url: finalImageUrl,
-        image_url: finalImageUrl,
         prompt: prompt || 'Cinematic lighting, high quality motion, photorealistic',
       },
       parameters: {
