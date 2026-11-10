@@ -1,3 +1,13 @@
+export interface CharacterBenchmark {
+  character_name: string;        // 主角姓名或称谓（如“唐纳德·特朗普”、“辛弃疾”或自拟角色）
+  description: string;           // 标志性面容轮廓、发型与体态特征
+  attire: string;                // 标志性定妆服装与随身配饰
+  portrait_image: string;        // 定妆肖像参考图 URL（如 /output/character/protagonist_benchmark.png）
+  portrait_remote_url?: string;  // 远程备份 URL
+  status: 'idle' | 'generating' | 'ready';
+  confirmed: boolean;            // 用户是否已确认定妆
+}
+
 export interface VisualContextProfile {
   era_setting: string;           // 时代环境定位 (例如："中国南宋绍兴年间，古代战场与军营" 或 "1980年代美国加州，现代科技创业")
   character_anchor: string;      // 主角人设特征 (例如："22岁东亚英武青年将领，刚毅果敢面容" 或 "40岁现代精英，短发成熟神态")
@@ -5,6 +15,7 @@ export interface VisualContextProfile {
   art_style: string;             // 统一艺术风格 (例如："写实厚涂历史漫画风格，电影级高对比戏剧光影，9:16竖屏")
   positive_anchors: string[];    // 动态提取的正向文化与时代视觉关键词
   negative_guardrails: string[]; // 动态推导的反向排除词 (自动识别时代与文化冲突元素，如古代排斥中世纪/现代电器)
+  character_benchmark?: CharacterBenchmark; // 主角定妆基准档案 (锁脸核心参考)
 }
 
 export interface Shot {

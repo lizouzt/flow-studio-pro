@@ -8,22 +8,32 @@ import { applyAdaptiveGuardrail } from '@/lib/visualDirector';
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, shotId, visualProfile, force = false } = await req.json();
+    const { prompt, shotId, visualProfile, force = false, referenceImage } = await req.json();
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
+    // 检查是否存在已确认的主角概念定妆照 (Actor Casting Benchmark)
+    const benchmarkDiskPath = path.resolve(process.cwd(), 'output', 'character', 'protagonist_benchmark.png');
+    const hasBenchmark = fs.existsSync(benchmarkDiskPath) && fs.statSync(benchmarkDiskPath).size > 1024;
+
     // 自适应防偏网：根据当前提取出的视觉档案自适应注入正向特征与时代冲突负向排除
-    const guardedPrompt = applyAdaptiveGuardrail(prompt, visualProfile);
+    let basePrompt = prompt;
+    if (hasBenchmark) {
+      // 强力注入主角锁脸锚定指令
+      basePrompt = `【主角绝对一致性锁脸】：画面中主体人物的面部五官结构、发型与年龄感，必须绝对严格对照【主角定妆概念照】的同一个人，严禁改变长相！${basePrompt}`;
+    }
+    const guardedPrompt = applyAdaptiveGuardrail(basePrompt, visualProfile);
 
     const config = getStudioConfig();
     const imageModel = config.dashscope?.image?.model || 'wanx2.1-t2i-turbo';
     const imageSize = config.dashscope?.image?.size || '720*1280';
 
-    // 1. 基于“提示词全文 + 模型 + 尺寸”计算 SHA-256 精确内容指纹 (Content-Hash)
+    // 1. 基于“提示词全文 + 模型 + 尺寸 + 是否锁脸”计算 SHA-256 精确内容指纹 (Content-Hash)
+    const lockSalt = hasBenchmark ? '_locked' : '';
     const promptHash = crypto
       .createHash('sha256')
-      .update(`${guardedPrompt.trim()}_${imageModel}_${imageSize}`)
+      .update(`${guardedPrompt.trim()}_${imageModel}_${imageSize}${lockSalt}`)
       .digest('hex')
       .slice(0, 16);
 

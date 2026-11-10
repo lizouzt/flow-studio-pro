@@ -1,5 +1,6 @@
 export * from './Header';
 export * from './ScriptAndVoiceStep';
+export * from './ActorCastingCard';
 export * from './StoryboardStep';
 export * from './VideoTransitStep';
 export * from './DeliveryStep';

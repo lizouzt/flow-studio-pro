@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shot, VisualContextProfile } from '@/types';
+import { Shot, VisualContextProfile, CharacterBenchmark } from '@/types';
 import {
   Header,
   ScriptAndVoiceStep,
+  ActorCastingCard,
   StoryboardStep,
   VideoTransitStep,
   DeliveryStep,
@@ -47,6 +48,8 @@ export default function StoryStudioWeb() {
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [isPolishingPrompts, setIsPolishingPrompts] = useState<boolean>(false);
   const [visualProfile, setVisualProfile] = useState<VisualContextProfile | null>(null);
+  const [characterBenchmark, setCharacterBenchmark] = useState<CharacterBenchmark | null>(null);
+  const [isCasting, setIsCasting] = useState<boolean>(false);
   const [criticReviewData, setCriticReviewData] = useState<{ [shotId: string]: any }>({});
   const [enableSpeedRamp, setEnableSpeedRamp] = useState<boolean>(true);
   const [enableOpticalFlow, setEnableOpticalFlow] = useState<boolean>(true);
@@ -278,17 +281,116 @@ export default function StoryStudioWeb() {
 
       if (asrData.visualProfile) {
         setVisualProfile(asrData.visualProfile);
+        // 第一步完成后自动拉起主角概念定妆 (Actor Casting)
+        triggerAutoBenchmark(asrData.visualProfile);
       }
       setShots(asrData.shots);
 
       const cacheHint = (ttsData.fromCache && asrData.fromCache) ? ' (⚡全流程秒级缓存直出)' : '';
-      showToast(`成功生成 ${asrData.shots.length} 个标准镜头${cacheHint}，已完成视觉世界观自适应提取！`, 'success');
+      showToast(`成功生成 ${asrData.shots.length} 个标准镜头${cacheHint}，已进入主角选角定妆环节！`, 'success');
       setCurrentStep(2);
     } catch (e: any) {
       showToast(`执行中断: ${e.message}`, 'error');
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // 概念定妆辅助函数：自适应渲染主角概念肖像
+  const triggerAutoBenchmark = async (profile: VisualContextProfile) => {
+    setIsCasting(true);
+    try {
+      const res = await fetch('/api/character-casting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate', visualProfile: profile }),
+      });
+      const data = await res.json();
+      if (res.ok && data.imageUrl) {
+        setCharacterBenchmark({
+          character_name: profile.character_anchor?.slice(0, 16) || '核心主角',
+          description: profile.character_anchor || '',
+          attire: profile.attire_props || '',
+          portrait_image: data.imageUrl,
+          portrait_remote_url: data.remoteUrl,
+          status: 'ready',
+          confirmed: false,
+        });
+      }
+    } catch (err) {
+      console.warn('Auto benchmark generation error:', err);
+    } finally {
+      setIsCasting(false);
+    }
+  };
+
+  // 概念定妆 1: 手动重新抽卡换角
+  const handleGenerateBenchmark = async () => {
+    setIsCasting(true);
+    showToast('正在基于角色人设与时代风格渲染主角标准定妆概念照...', 'info');
+    try {
+      const res = await fetch('/api/character-casting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate', visualProfile }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '定妆照生成失败');
+
+      setCharacterBenchmark({
+        character_name: visualProfile?.character_anchor?.slice(0, 16) || '核心主角',
+        description: visualProfile?.character_anchor || '',
+        attire: visualProfile?.attire_props || '',
+        portrait_image: data.imageUrl,
+        portrait_remote_url: data.remoteUrl,
+        status: 'ready',
+        confirmed: false,
+      });
+      showToast('✨ 主角概念定妆照已出炉！满意后可点击确认锁定。', 'success');
+    } catch (e: any) {
+      showToast(`定妆生成异常: ${e.message}`, 'error');
+    } finally {
+      setIsCasting(false);
+    }
+  };
+
+  // 概念定妆 2: 用户上传真人或自定义参考图
+  const handleUploadBenchmark = async (base64: string) => {
+    setIsCasting(true);
+    showToast('正在上传并绑定自定义主角参考底图...', 'info');
+    try {
+      const res = await fetch('/api/character-casting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upload', customImageBase64: base64 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '上传处理失败');
+
+      setCharacterBenchmark({
+        character_name: visualProfile?.character_anchor?.slice(0, 16) || '自定义主角',
+        description: visualProfile?.character_anchor || '',
+        attire: visualProfile?.attire_props || '',
+        portrait_image: data.imageUrl,
+        status: 'ready',
+        confirmed: true,
+      });
+      showToast('✅ 自定义主角参考底图已绑定！后续分镜将以此为连戏基准。', 'success');
+    } catch (e: any) {
+      showToast(`上传失败: ${e.message}`, 'error');
+    } finally {
+      setIsCasting(false);
+    }
+  };
+
+  // 概念定妆 3: 确认锁定定妆
+  const handleConfirmBenchmark = () => {
+    if (!characterBenchmark?.portrait_image) {
+      showToast('尚未生成或指定定妆照！', 'error');
+      return;
+    }
+    setCharacterBenchmark((prev) => (prev ? { ...prev, confirmed: true } : null));
+    showToast('🔒 主角面部特征已固化锁定！各分镜将严格依此肖像保持同一人脸。', 'success');
   };
 
   // 2. 真实调用 AI 模型绘制首帧 (支持内容哈希缓存快速复用与 force 强制刷新)
@@ -651,7 +753,18 @@ export default function StoryStudioWeb() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
+              className="flex flex-col gap-6"
             >
+              {/* 核心枢纽：主角选角定妆卡片 (Actor Casting / 绝对锁脸基线) */}
+              <ActorCastingCard
+                visualProfile={visualProfile}
+                benchmark={characterBenchmark}
+                isCasting={isCasting}
+                onGenerateBenchmark={handleGenerateBenchmark}
+                onUploadBenchmark={handleUploadBenchmark}
+                onConfirmBenchmark={handleConfirmBenchmark}
+              />
+
               <StoryboardStep
                 shots={shots}
                 visualProfile={visualProfile}
