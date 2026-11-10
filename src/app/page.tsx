@@ -43,6 +43,9 @@ export default function StoryStudioWeb() {
 
   // 融合高级媒体引擎状态 (Critic / 闭环动画 / 母版直出)
   const [animatingShotId, setAnimatingShotId] = useState<string | null>(null);
+  const [animatingTaskProgress, setAnimatingTaskProgress] = useState<{
+    [shotId: string]: { taskId: string; elapsedSec: number; status: string };
+  }>({});
   const [generatingImageShotId, setGeneratingImageShotId] = useState<string | null>(null);
   const [isBatchGeneratingImages, setIsBatchGeneratingImages] = useState<boolean>(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
@@ -556,17 +559,19 @@ export default function StoryStudioWeb() {
     }
   };
 
-  // 融合功能 4: AI 动力学动画驱动生成 (异步轮询切片直出)
+  // 融合功能 4: AI 动力学动画驱动生成 (异步秒级提交 + 轻量长效轮询直出，彻底杜绝长连接超时)
   const handleAnimateWanx = async (shot: Shot) => {
     setAnimatingShotId(shot.shot_id);
-    showToast(`正在提交 AI 动力学视频生成任务并开启异步轮询直出...`, 'info');
+    showToast(`正在向云端提交 ${shot.shot_id} 视频生成任务...`, 'info');
 
     try {
       const selectedImg = (shot.keyframe_image || shot.remote_image_url || '').split('?')[0];
+      // 1. 提交任务，1~2秒内即时响应
       const res = await fetch('/api/animate-wanx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'submit',
           shotId: shot.shot_id,
           imageUrl: selectedImg,
           prompt: shot.i2v_prompt,
@@ -574,20 +579,75 @@ export default function StoryStudioWeb() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'AI 视频切片生成失败');
+      if (!res.ok) throw new Error(data.error || 'AI 视频切片任务提交失败');
 
-      setShots((prev) =>
-        prev.map((s) =>
-          s.shot_id === shot.shot_id
-            ? { ...s, rendered_video_path: data.videoUrl, status: 'ready' }
-            : s
-        )
-      );
-      showToast(`🎬 ${shot.shot_id} 视频生成完毕，已自动落盘绑定！`, 'success');
+      const taskId = data.taskId;
+      if (!taskId) throw new Error('云端未返回有效的任务 ID (taskId)');
+
+      showToast(`⚡ ${shot.shot_id} 任务已入队，云端排队逐帧渲染中 (通常需2~5分钟)...`, 'info');
+
+      setAnimatingTaskProgress((prev) => ({
+        ...prev,
+        [shot.shot_id]: { taskId, elapsedSec: 0, status: 'RUNNING' },
+      }));
+
+      // 2. 启动前端轻量轮询 (单次查询仅需 100ms，最高支持 15 分钟长效队列，无连接超时风险)
+      const pollIntervalMs = 5000;
+      const maxAttempts = 180; // 180 * 5s = 900s = 15 分钟
+      let attempts = 0;
+      let completed = false;
+
+      while (attempts < maxAttempts && !completed) {
+        await new Promise((r) => setTimeout(r, pollIntervalMs));
+        attempts++;
+        const currentElapsed = attempts * 5;
+
+        setAnimatingTaskProgress((prev) => ({
+          ...prev,
+          [shot.shot_id]: { taskId, elapsedSec: currentElapsed, status: 'RUNNING' },
+        }));
+
+        try {
+          const pollRes = await fetch(`/api/animate-wanx?taskId=${encodeURIComponent(taskId)}&shotId=${encodeURIComponent(shot.shot_id)}`);
+          if (!pollRes.ok) {
+            console.warn(`[AnimateWanx Poll] 轮询临时异常 (HTTP ${pollRes.status})，5秒后重试...`);
+            continue;
+          }
+
+          const pollData = await pollRes.json();
+          if (pollData.status === 'SUCCEEDED') {
+            completed = true;
+            setShots((prev) =>
+              prev.map((s) =>
+                s.shot_id === shot.shot_id
+                  ? { ...s, rendered_video_path: pollData.videoUrl, status: 'ready' }
+                  : s
+              )
+            );
+            showToast(`🎬 ${shot.shot_id} 视频切片渲染完成 (总耗时约 ${currentElapsed}s)，已自动绑定！`, 'success');
+            break;
+          } else if (pollData.status === 'FAILED' || pollData.status === 'CANCELED') {
+            throw new Error(pollData.error || '云端视频渲染任务失败');
+          }
+        } catch (pollErr: any) {
+          if (pollErr.message && !pollErr.message.includes('fetch')) {
+            throw pollErr;
+          }
+        }
+      }
+
+      if (!completed) {
+        throw new Error('视频生成任务排队超时 (超过 15 分钟)，请检查云端服务或重试');
+      }
     } catch (err: any) {
-      showToast(`闭环出片失败: ${err.message}`, 'error');
+      showToast(`视频切片生成失败: ${err.message}`, 'error');
     } finally {
-      setAnimatingShotId(null);
+      setAnimatingShotId((prev) => (prev === shot.shot_id ? null : prev));
+      setAnimatingTaskProgress((prev) => {
+        const next = { ...prev };
+        delete next[shot.shot_id];
+        return next;
+      });
     }
   };
 
@@ -769,6 +829,7 @@ export default function StoryStudioWeb() {
                 shots={shots}
                 visualProfile={visualProfile}
                 animatingShotId={animatingShotId}
+                animatingTaskProgress={animatingTaskProgress}
                 generatingImageShotId={generatingImageShotId}
                 isBatchGeneratingImages={isBatchGeneratingImages}
                 batchProgress={batchProgress}

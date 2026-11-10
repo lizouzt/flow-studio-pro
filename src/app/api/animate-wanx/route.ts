@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 import { getStudioConfig } from '@/lib/config';
-import { uploadLocalFileToDashScopeOss } from '@/lib/dashscope';
 
 /**
  * 稳健解析本地文件路径，兼容不同的工作目录层级
@@ -26,9 +25,132 @@ function findLocalFile(fileRelativePath: string): string | null {
   return null;
 }
 
+/**
+ * 单次查询异步任务状态并在生成完成时自动下载视频切片至本地
+ */
+async function queryTaskStatus(taskId: string, shotId?: string, apiKey?: string) {
+  if (!apiKey) {
+    const config = getStudioConfig();
+    apiKey = config.dashscope.api_key;
+  }
+  if (!apiKey) {
+    return NextResponse.json({ error: '未配置 DashScope API Key' }, { status: 400 });
+  }
+
+  const pollRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
+    headers: {
+      Authorization: `Bearer ${apiKey.trim()}`,
+    },
+  });
+
+  if (!pollRes.ok) {
+    const errText = await pollRes.text();
+    return NextResponse.json(
+      { error: `查询任务状态失败 (HTTP ${pollRes.status}): ${errText}` },
+      { status: pollRes.status }
+    );
+  }
+
+  const pollData = await pollRes.json();
+  const status = pollData?.output?.task_status;
+
+  if (status === 'SUCCEEDED') {
+    const videoUrl = pollData?.output?.video_url;
+    if (videoUrl) {
+      const videoDir = path.resolve(process.cwd(), 'output', 'videos');
+      fs.mkdirSync(videoDir, { recursive: true });
+
+      const localFileName = `${shotId || 'shot'}.mp4`;
+      const localFilePath = path.join(videoDir, localFileName);
+
+      // 若本地已存在且完整，直接返回
+      if (fs.existsSync(localFilePath) && fs.statSync(localFilePath).size > 1024) {
+        return NextResponse.json({
+          success: true,
+          status: 'SUCCEEDED',
+          taskId,
+          shotId,
+          videoUrl: `/output/videos/${localFileName}`,
+          remoteUrl: videoUrl,
+        });
+      }
+
+      // 下载远程视频并保存到本地
+      try {
+        console.log(`[AnimateWanx] 任务 ${taskId} 渲染成功，正在下载切片到本地: ${localFilePath}`);
+        const vRes = await fetch(videoUrl);
+        if (vRes.ok) {
+          const buffer = await vRes.arrayBuffer();
+          fs.writeFileSync(localFilePath, Buffer.from(buffer));
+        } else {
+          console.warn(`[AnimateWanx] 视频下载返回 HTTP ${vRes.status}，仍返回远端链接备用`);
+        }
+      } catch (dlErr: any) {
+        console.warn(`[AnimateWanx] 下载远程视频至本地异常:`, dlErr.message);
+      }
+
+      return NextResponse.json({
+        success: true,
+        status: 'SUCCEEDED',
+        taskId,
+        shotId,
+        videoUrl: `/output/videos/${localFileName}`,
+        remoteUrl: videoUrl,
+      });
+    }
+  } else if (status === 'FAILED' || status === 'CANCELED') {
+    return NextResponse.json(
+      {
+        success: false,
+        status: status,
+        taskId,
+        shotId,
+        error: pollData?.output?.message || pollData?.output?.code || '视频生成任务失败',
+      },
+      { status: 500 }
+    );
+  }
+
+  // 任务仍处于排队或渲染状态 (PENDING 或 RUNNING)
+  return NextResponse.json({
+    success: true,
+    status: status || 'RUNNING',
+    taskId,
+    shotId,
+  });
+}
+
+/**
+ * GET: 异步单次查询任务进度 (轻量耗时 < 200ms)
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const taskId = req.nextUrl.searchParams.get('taskId');
+    const shotId = req.nextUrl.searchParams.get('shotId') || undefined;
+
+    if (!taskId) {
+      return NextResponse.json({ error: 'taskId 参数不能为空' }, { status: 400 });
+    }
+
+    const config = getStudioConfig();
+    const apiKey = config.dashscope.api_key;
+    if (!apiKey) {
+      return NextResponse.json({ error: '未配置 DashScope API Key' }, { status: 400 });
+    }
+
+    return await queryTaskStatus(taskId, shotId, apiKey);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || '查询视频生成任务状态异常' }, { status: 500 });
+  }
+}
+
+/**
+ * POST: 提交视频生成任务或查询任务进度
+ */
 export async function POST(req: NextRequest) {
   try {
-    const { shotId, imageUrl, prompt, duration = 5 } = await req.json();
+    const body = await req.json();
+    const { action, taskId, shotId, imageUrl, prompt, duration = 5 } = body;
     const config = getStudioConfig();
     const apiKey = config.dashscope.api_key;
 
@@ -39,6 +161,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 1. 若为查询请求，直接单次查询
+    if (action === 'query' || (taskId && !imageUrl)) {
+      return await queryTaskStatus(taskId, shotId, apiKey);
+    }
+
+    // 2. 否则为创建/提交生成任务
     if (!imageUrl || typeof imageUrl !== 'string') {
       return NextResponse.json({ error: '首帧图片 URL 不能为空' }, { status: 400 });
     }
@@ -48,11 +176,7 @@ export async function POST(req: NextRequest) {
     const resolution = rawResolution.toLowerCase().includes('720') ? '720P' : rawResolution.toUpperCase();
     const promptExtend = config.dashscope.video?.prompt_extend ?? false;
 
-    // 智能解析首帧图片地址：
-    // 阿里云百炼 Wanx 图生视频 API 官方规范：
-    // 1. 本地图片：直接转换为标准 Data URI (data:image/png;base64,{base64_data})，百炼官方原生支持，免去任何云端存储中转与防盗链风险！
-    // 2. 远程公网图片：优先下载为 Buffer 转换为 Data URI 传入，若网络异常回退至原始公开 HTTP 链接；
-    // 3. input 中严格只传官方声明参数 img_url，严禁传入任何多余键（如 image_url 会直接导致 Data Inspection 崩溃报 400）。
+    // 智能解析首帧图片地址为标准 Base64 Data URI
     let finalImageUrl = imageUrl.trim();
     const cleanUrlPath = finalImageUrl.split('?')[0];
 
@@ -115,7 +239,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. 提交异步 I2V 图生视频任务至阿里云百炼 (官方标准端点为 video-synthesis)
+    // 提交异步 I2V 图生视频任务至阿里云百炼 (官方标准端点为 video-synthesis)
     const submitPayload: Record<string, any> = {
       model: videoModel,
       input: {
@@ -133,6 +257,7 @@ export async function POST(req: NextRequest) {
       submitPayload.parameters.duration = Math.max(3, Math.min(10, Math.round(duration)));
     }
 
+    console.log(`[AnimateWanx] 正在向百炼提交视频生成任务 (${videoModel})...`);
     const submitRes = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis', {
       method: 'POST',
       headers: {
@@ -156,60 +281,21 @@ export async function POST(req: NextRequest) {
     }
 
     const submitData = await submitRes.json();
-    const taskId = submitData?.output?.task_id;
-    if (!taskId) {
+    const createdTaskId = submitData?.output?.task_id;
+    if (!createdTaskId) {
       return NextResponse.json({ error: '百炼未返回有效的 task_id' }, { status: 500 });
     }
 
-    // 2. 轮询异步任务状态 (最高等待 240 秒，每 4 秒轮询一次)
-    const maxAttempts = 60;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise((r) => setTimeout(r, 4000));
+    console.log(`[AnimateWanx] 任务提交成功，TaskId: ${createdTaskId}，耗时约1秒，即刻响应客户端`);
 
-      const pollRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey.trim()}`,
-        },
-      });
-
-      if (pollRes.ok) {
-        const pollData = await pollRes.json();
-        const status = pollData?.output?.task_status;
-
-        if (status === 'SUCCEEDED') {
-          const videoUrl = pollData?.output?.video_url;
-          if (videoUrl) {
-            // 下载并将视频切片保存至 output/videos/
-            const videoDir = path.resolve(process.cwd(), 'output', 'videos');
-            fs.mkdirSync(videoDir, { recursive: true });
-
-            const localFileName = `${shotId || 'shot'}.mp4`;
-            const localFilePath = path.join(videoDir, localFileName);
-
-            const vRes = await fetch(videoUrl);
-            const buffer = await vRes.arrayBuffer();
-            fs.writeFileSync(localFilePath, Buffer.from(buffer));
-
-            return NextResponse.json({
-              success: true,
-              shotId,
-              videoUrl: `/output/videos/${localFileName}`,
-              remoteUrl: videoUrl,
-            });
-          }
-        } else if (status === 'FAILED' || status === 'CANCELED') {
-          return NextResponse.json(
-            { error: `视频生成任务失败: ${pollData?.output?.message || '未知错误'}` },
-            { status: 500 }
-          );
-        }
-      }
-    }
-
-    return NextResponse.json(
-      { error: '视频生成任务排队超时，请稍后检查百炼控制台或重试。' },
-      { status: 504 }
-    );
+    // 立即响应前端客户端，耗时 < 1.5 秒，彻底解决浏览器/Node 长连接 504 超时问题
+    return NextResponse.json({
+      success: true,
+      status: 'PENDING',
+      taskId: createdTaskId,
+      shotId,
+      message: '视频生成任务已成功提交至云端排队，请通过轮询接口获取结果',
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Wanx I2V 动画调度异常' }, { status: 500 });
   }

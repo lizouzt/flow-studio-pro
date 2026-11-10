@@ -13,6 +13,8 @@ import {
   Loader2,
   Palette,
   Wand2,
+  Film,
+  Play,
 } from 'lucide-react';
 import { Shot, VisualContextProfile } from '@/types';
 
@@ -20,6 +22,7 @@ interface StoryboardStepProps {
   shots: Shot[];
   visualProfile?: VisualContextProfile | null;
   animatingShotId: string | null;
+  animatingTaskProgress?: { [shotId: string]: { taskId: string; elapsedSec: number; status: string } };
   generatingImageShotId?: string | null;
   isBatchGeneratingImages?: boolean;
   batchProgress?: { current: number; total: number } | null;
@@ -40,6 +43,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
   shots,
   visualProfile,
   animatingShotId,
+  animatingTaskProgress,
   generatingImageShotId,
   isBatchGeneratingImages = false,
   batchProgress,
@@ -175,6 +179,39 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
 
               {/* 9:16 媒体视口 */}
               <div className="relative w-full aspect-[9/16] rounded-xl overflow-hidden bg-black/60 border border-white/[0.08] group-hover:border-amber-500/40 transition">
+                {/* 视频切片已就绪角标 */}
+                {shot.rendered_video_path && (
+                  <a
+                    href={shot.rendered_video_path}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="点击在新窗口预览/播放该分镜视频切片"
+                    className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-emerald-500/90 hover:bg-emerald-400 text-black text-[10px] font-bold flex items-center gap-1 shadow-md shadow-emerald-500/20 backdrop-blur transition"
+                  >
+                    <Play className="w-2.5 h-2.5 fill-black" />
+                    视频已就绪
+                  </a>
+                )}
+
+                {/* 异步视频生成中 Loading 遮罩与动态耗时 */}
+                {animatingShotId === shot.shot_id && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4 text-center bg-black/85 backdrop-blur-md">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3 shadow-lg shadow-amber-500/20">
+                      <Zap className="w-6 h-6 animate-spin text-amber-400" />
+                    </div>
+                    <span className="text-xs font-bold text-amber-300">AI 视频切片生成中</span>
+                    <span className="text-xs font-mono text-white/90 font-semibold mt-1.5">
+                      已排队渲染 {animatingTaskProgress?.[shot.shot_id]?.elapsedSec || 0} 秒
+                    </span>
+                    <div className="w-28 bg-white/10 h-1.5 rounded-full mt-2.5 overflow-hidden">
+                      <div className="bg-gradient-to-r from-amber-500 to-yellow-300 h-full w-full animate-pulse" />
+                    </div>
+                    <span className="text-[10px] text-gray-400 mt-2 max-w-[150px] leading-tight">
+                      云端排队逐帧渲染中 (通常 2~5 分钟)，请稍候...
+                    </span>
+                  </div>
+                )}
+
                 {isGeneratingImg ? (
                   /* 生成中 Loading 状态 */
                   <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-black/80 backdrop-blur-sm">
@@ -240,8 +277,12 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
                   <button
                     disabled={animatingShotId === shot.shot_id}
                     onClick={() => onAnimateWanx(shot)}
-                    title="生成视频切片 (AI 动画驱动)"
-                    className="p-1.5 rounded-lg bg-black/70 backdrop-blur hover:bg-amber-500 hover:text-black text-amber-300 text-xs transition"
+                    title={shot.rendered_video_path ? "重新生成视频切片 (AI 动画驱动)" : "生成视频切片 (AI 动画驱动)"}
+                    className={`p-1.5 rounded-lg bg-black/70 backdrop-blur text-xs transition ${
+                      shot.rendered_video_path
+                        ? 'hover:bg-emerald-500 hover:text-black text-emerald-300'
+                        : 'hover:bg-amber-500 hover:text-black text-amber-300'
+                    }`}
                   >
                     <Zap className={`w-3.5 h-3.5 ${animatingShotId === shot.shot_id ? 'animate-spin' : ''}`} />
                   </button>
