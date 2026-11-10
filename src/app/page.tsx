@@ -405,10 +405,18 @@ export default function StoryStudioWeb() {
     setGeneratingImageShotId(shotId);
     showToast(force ? `正在重新调用 AI 引擎绘制 ${shotId} 首帧...` : `正在绘制 ${shotId} 首帧...`, 'info');
     try {
+      const currentShot = shots.find((s) => s.shot_id === shotId);
       const res = await fetch('/api/wanx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, shotId, visualProfile, force, characterBenchmark }),
+        body: JSON.stringify({
+          prompt,
+          shotId,
+          shotFocus: currentShot?.shot_focus,
+          visualProfile,
+          force,
+          characterBenchmark,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '生图失败');
@@ -469,7 +477,14 @@ export default function StoryStudioWeb() {
         const res = await fetch('/api/wanx', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: promptToUse, shotId: targetShot.shot_id, visualProfile, force: false, characterBenchmark }),
+          body: JSON.stringify({
+            prompt: promptToUse,
+            shotId: targetShot.shot_id,
+            shotFocus: targetShot.shot_focus,
+            visualProfile,
+            force: false,
+            characterBenchmark,
+          }),
         });
         const data = await res.json();
         if (res.ok && data.imageUrl) {

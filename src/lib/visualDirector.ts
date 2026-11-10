@@ -242,7 +242,38 @@ ${script.slice(0, 1500)}`;
 }
 
 /**
- * 核心引擎 2：基于提取出的视觉世界观，为每个分镜生成专属 t2i_prompt 与 i2v_prompt
+ * 镜头焦点与蒙太奇意图分类器：避免全片每一镜都硬塞主角人脸
+ */
+export function detectShotFocusFromText(
+  voiceover: string = '',
+  index: number = 0,
+  totalShots: number = 4
+): 'character' | 'environment' | 'prop' | 'pov_antagonist' {
+  const text = voiceover.toLowerCase();
+
+  // 1. 器物与微距道具判定
+  if (/剑刃|刀光|吴钩|手稿|文书|檄文|虎符|案头|油灯|烛光|栏杆|美芹十论|卷轴|书信|马蹄|酒杯|佩玉|腰牌/.test(text)) {
+    return 'prop';
+  }
+
+  // 2. 宏观环境建立/大阵仗空镜判定 (首镜或战局宏观描述)
+  if (/大营|营帐|连绵|十里|烽燧|鹿角|山川|丘陵|暮色|苍茫|寒夜|风雪|烟雨|江南|西湖|城郭|铁幕|黑云|千军|万军/.test(text)) {
+    if (index === 0 || index === 2 || !/他|她|将领|冲锋|破阵|斩|双眼|瞳孔/.test(text)) {
+      return 'environment';
+    }
+  }
+
+  // 3. 主观视点与动态反打判定
+  if (/撞碎|辕门|破阵|掠过|呼啸|迎面|飞沙|惊骇|仓皇|溃散/.test(text) && index !== 0) {
+    return 'pov_antagonist';
+  }
+
+  // 4. 默认：主角叙事与核心动作神态
+  return 'character';
+}
+
+/**
+ * 核心引擎 2：基于提取出的视觉世界观，为每个分镜生成专属 t2i_prompt 与 i2v_prompt (融入电影级蒙太奇镜头节奏)
  */
 export async function enrichShotsWithAdaptiveVisualDirector(
   shots: Shot[],
@@ -255,7 +286,7 @@ export async function enrichShotsWithAdaptiveVisualDirector(
 
   // 若无 Key 或脱机，使用自适应档案合成提示词
   if (!cleanKey || cleanKey.startsWith('YOUR_') || cleanKey.includes('sk-xxx')) {
-    return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile));
+    return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length));
   }
 
   try {
@@ -266,7 +297,7 @@ export async function enrichShotsWithAdaptiveVisualDirector(
       camera_motion: s.camera_motion,
     }));
 
-    const systemPrompt = `你是一位精通分镜美术设计的顶级视觉导演。
+    const systemPrompt = `你是一位精通分镜美术设计与电影蒙太奇节奏的顶级视觉导演。
 系统已对用户文稿完成了全局世界观分析，提取出如下《视觉设定档案》：
 ------------------------
 【时代与环境】：${visualProfile.era_setting}
@@ -277,14 +308,23 @@ export async function enrichShotsWithAdaptiveVisualDirector(
 【负向排斥词】：${visualProfile.negative_guardrails.join(', ')}
 ------------------------
 
-【你的绝对纪律（Character Consistency Lock）】：
-1. 【主角绝对一致性】：全部分镜中的核心主角必须严格保持与《视觉设定档案》中的【主角人设锚点】完全同一！绝对禁止在任意分镜中擅自更换主角面孔、姓名或引入其他现实公众人物，严禁在任何镜头中混入其他非剧设公众人物或无关面孔！
-2. 【分镜主角锁头锚定】：在每个镜头的 t2i_prompt 开头，必须显式指明【${visualProfile.character_anchor}】，并描绘该主角在本镜头的动作、情绪与环境互动！
-3. 【两组专属提示词】：
-   - t2i_prompt: AI 文生图描述。主体人物特征（置于最前）+ 本镜头情节动势与景别 + 服饰环境 + 美术风格 + 正向词 + (严禁负向词)；
-   - i2v_prompt: 视频动态运动描述，包含镜头运镜机位与画中人物自然微动。
+【电影级镜头编排黄金法则（严禁把每一个镜头都做成主角写真集！）】：
+一部优秀的影视短片绝不会在每个镜头都硬塞主角！必须有大有小、有人有物、虚实相生：
+1. 【四类分镜焦点 (shot_focus)】：
+   - "character"（主角叙事镜）：主角的核心动作、情绪交锋、中景或特写。仅此类镜头开头必须显式注入【${visualProfile.character_anchor}】并保持绝对锁脸连戏；
+   - "environment"（环境建立镜/宏观空镜）：展现时代氛围、战场景观、千军万马的大阵仗或地理地貌。严禁插入具体人脸，专注宏大景深与时代光影；
+   - "prop"（器物微距与隐喻镜）：聚焦兵刃武器、书卷手稿、令牌虎符、马蹄踏泥等物理细节。严禁人脸大头贴，专注微距浅景深与材质质感；
+   - "pov_antagonist"（主观视点/敌军反打镜）：急速飞驰的第一人称掠影视角，或敌军兵将仓皇惊骇的动态。严禁混入主角面孔。
 
-【格式要求】：只输出标准的 JSON 数组，每个对象包含 shot_id, t2i_prompt, i2v_prompt。`;
+2. 【镜头节奏分配】：主角镜头建议占 50%~60%，其余 40%~50% 错落分配为环境建立镜与器物特写，形成呼吸起伏的院线电影质感！
+
+【输出格式要求】：只输出标准的 JSON 数组，每个对象必须包含：
+{
+  "shot_id": string,
+  "shot_focus": "character" | "environment" | "prop" | "pov_antagonist",
+  "t2i_prompt": string,
+  "i2v_prompt": string
+}`;
 
     const userPrompt = `【分镜列表】：
 ${JSON.stringify(shotInputs, null, 2)}
@@ -309,17 +349,22 @@ ${JSON.stringify(shotInputs, null, 2)}
 
     if (!res.ok) {
       console.warn('Adaptive Visual Director API failed, using synthetic fallback');
-      return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile));
+      return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length));
     }
 
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content?.trim();
-    if (!content) return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile));
+    if (!content) return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length));
 
     const match = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
-    if (!match) return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile));
+    if (!match) return shots.map((s, idx) => synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length));
 
-    const parsedResults: Array<{ shot_id: string; t2i_prompt: string; i2v_prompt: string }> = JSON.parse(match[0]);
+    const parsedResults: Array<{
+      shot_id: string;
+      shot_focus?: 'character' | 'environment' | 'prop' | 'pov_antagonist';
+      t2i_prompt: string;
+      i2v_prompt: string;
+    }> = JSON.parse(match[0]);
     const promptMap = new Map(parsedResults.map((p) => [p.shot_id, p]));
 
     return shots.map((s, idx) => {
@@ -328,18 +373,19 @@ ${JSON.stringify(shotInputs, null, 2)}
       if (enriched && enriched.t2i_prompt) {
         targetShot = {
           ...s,
+          shot_focus: enriched.shot_focus || detectShotFocusFromText(s.voiceover, idx, shots.length),
           t2i_prompt: enriched.t2i_prompt,
           i2v_prompt: enriched.i2v_prompt || s.i2v_prompt,
           character_anchor: visualProfile.character_anchor,
         };
       } else {
-        targetShot = synthesizeShotPromptFromProfile(s, idx, visualProfile);
+        targetShot = synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length);
       }
       return attachCacheIfAvailable(targetShot);
     });
   } catch (err) {
     console.warn('Enrich shots adaptive error, using synthetic fallback:', err);
-    return shots.map((s, idx) => attachCacheIfAvailable(synthesizeShotPromptFromProfile(s, idx, visualProfile)));
+    return shots.map((s, idx) => attachCacheIfAvailable(synthesizeShotPromptFromProfile(s, idx, visualProfile, shots.length)));
   }
 }
 
@@ -374,22 +420,38 @@ export function attachCacheIfAvailable(shot: Shot): Shot {
 }
 
 /**
- * 本地自适应提示词组装器：基于提取的档案与解说词动态合成 t2i_prompt
+ * 本地自适应提示词组装器：基于镜头焦点 (主角/环境/器物/视点) 智能合成 t2i_prompt
  */
 export function synthesizeShotPromptFromProfile(
   shot: Shot,
   index: number,
-  profile: VisualContextProfile
+  profile: VisualContextProfile,
+  totalShots: number = 4
 ): Shot {
   const positives = profile.positive_anchors.join(', ');
   const negatives = profile.negative_guardrails.length > 0 ? `(严禁${profile.negative_guardrails.join('、严禁')})` : '';
+  const focus = shot.shot_focus || detectShotFocusFromText(shot.voiceover, index, totalShots);
 
-  const t2i = `${profile.art_style}。画面描绘情节：“${shot.voiceover}”。主体人物表现为：${profile.character_anchor}，身着：${profile.attire_props}。场景环境设定：${profile.era_setting}。运镜与构图：${shot.camera_motion}。${positives}。${negatives}`;
+  let t2i = '';
+  if (focus === 'environment') {
+    // 宏观建立镜头：严禁堆叠人物面部描述，专注宏伟空间与时代沧桑氛围
+    t2i = `${profile.art_style}。电影级宏观环境建立镜头：表现情节“${shot.voiceover}”。构图与运镜：${shot.camera_motion}。时代与地理宏观空间：${profile.era_setting}。${positives}。(宏观空间地貌与时代氛围渲染，无人物特写，严禁人脸大头贴、严禁现代元素)`;
+  } else if (focus === 'prop') {
+    // 器物与隐喻微距特写：专注材质光影，严禁硬插人脸
+    t2i = `${profile.art_style}。电影级微距器物特写：表现情节“${shot.voiceover}”。核心器物质感细节：${profile.attire_props}。运镜与景深：${shot.camera_motion}，浅景深虚化背景。${positives}。(微距静物特写，无人物特写，严禁人脸大头贴)`;
+  } else if (focus === 'pov_antagonist') {
+    // 主观视点或反打动势
+    t2i = `${profile.art_style}。第一人称动态视点镜头：表现情节动势“${shot.voiceover}”。镜头机位与动势：${shot.camera_motion}。场景空间：${profile.era_setting}。${positives}。(高速动势与战场对决氛围，严禁混入主角面容)`;
+  } else {
+    // 核心主角叙事镜头 (真锁脸)
+    t2i = `${profile.art_style}。核心主角画面：表现情节“${shot.voiceover}”。主体人物表现为：【${profile.character_anchor}】，身着：${profile.attire_props}。场景空间设定：${profile.era_setting}。运镜与构图：${shot.camera_motion}。${positives}。${negatives}`;
+  }
 
   return {
     ...shot,
+    shot_focus: focus,
     t2i_prompt: t2i,
-    character_anchor: profile.character_anchor,
+    character_anchor: focus === 'character' ? profile.character_anchor : undefined,
   };
 }
 

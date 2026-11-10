@@ -8,7 +8,7 @@ import { applyAdaptiveGuardrail } from '@/lib/visualDirector';
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, shotId, visualProfile, force = false, referenceImage, characterBenchmark } = await req.json();
+    const { prompt, shotId, shotFocus, visualProfile, force = false, referenceImage, characterBenchmark } = await req.json();
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
@@ -56,9 +56,23 @@ export async function POST(req: NextRequest) {
       hasBenchmark = true;
     }
 
+    // 智能识别当前分镜是否为主角叙事镜头 (仅在主角叙事镜头激活定妆图锁脸)：
+    // 若为宏观环境建立空镜 (environment) 或微距器物特写 (prop)，不传人脸参考图，避免大模型把人脸硬塞进大好山河或武器器物中！
+    const isCharacterFocus = shotFocus
+      ? shotFocus === 'character'
+      : (!prompt.includes('宏观环境建立') && !prompt.includes('微距器物特写') && !prompt.includes('无人物特写'));
+
+    let activeBenchmarkUri: string | null = null;
+    let activeBenchmark = false;
+
+    if (hasBenchmark && isCharacterFocus) {
+      activeBenchmarkUri = benchmarkDataUri;
+      activeBenchmark = true;
+    }
+
     // 自适应防偏网：根据当前提取出的视觉档案自适应注入正向特征与时代冲突负向排除
     let basePrompt = prompt;
-    if (hasBenchmark) {
+    if (activeBenchmark) {
       // 强力注入主角锁脸锚定指令
       basePrompt = `【主角绝对一致性锁脸】：画面中主体人物的面部五官结构、发型与年龄感，必须绝对严格对照参考图中的同一个人，严禁改变长相！${basePrompt}`;
     }
@@ -66,9 +80,9 @@ export async function POST(req: NextRequest) {
 
     // 3. 基于“提示词全文 + 模型 + 尺寸 + 定妆图哈希”计算精准内容指纹 (Content-Hash)
     let benchmarkHash = '';
-    if (hasBenchmark && benchmarkDataUri) {
+    if (activeBenchmark && activeBenchmarkUri) {
       // 对定妆图前 10KB 计算指纹，当定妆换角时自动失效旧分镜缓存
-      benchmarkHash = crypto.createHash('md5').update(benchmarkDataUri.slice(0, 10240)).digest('hex').slice(0, 8);
+      benchmarkHash = crypto.createHash('md5').update(activeBenchmarkUri.slice(0, 10240)).digest('hex').slice(0, 8);
     }
 
     const promptHash = crypto
@@ -102,14 +116,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 5. 未命中缓存或强制重绘：真实调用百炼 Wan 2.7 多模态生成接口（真实吃入定妆参考图）
-    console.log(`[Wanx Image] 正在调用 ${imageModel} 生图，定妆参考图已激活: ${hasBenchmark}`);
+    // 5. 未命中缓存或强制重绘：真实调用百炼 Wan 2.7 多模态生成接口（按需选择是否吃入定妆参考图）
+    console.log(`[Wanx Image] 正在调用 ${imageModel} 生图，镜头类型: ${shotFocus || 'auto'}，定妆参考图激活: ${activeBenchmark}`);
     const remoteImageUrl = await generateWanxImage(
       guardedPrompt,
       config.dashscope.api_key,
       imageModel,
       imageSize,
-      benchmarkDataUri
+      activeBenchmarkUri
     );
 
     // 6. 将生成的首帧图持久化写入哈希缓存与镜头编号文件

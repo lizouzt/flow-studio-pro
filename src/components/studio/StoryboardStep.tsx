@@ -177,7 +177,27 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
               className="glass-panel rounded-2xl p-4 flex flex-col gap-3 amber-glow group transition duration-300"
             >
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-amber-400 font-mono uppercase">{shot.shot_id}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-amber-400 font-mono uppercase">{shot.shot_id}</span>
+                  {/* 电影级分镜焦点徽章 */}
+                  {shot.shot_focus === 'environment' ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-300 border border-blue-500/20 font-medium">
+                      🏔️ 宏观环境
+                    </span>
+                  ) : shot.shot_focus === 'prop' ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 font-medium">
+                      🗡️ 器物微距
+                    </span>
+                  ) : shot.shot_focus === 'pov_antagonist' ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-medium">
+                      👁️ 动态视点
+                    </span>
+                  ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 font-medium">
+                      🎭 主角叙事
+                    </span>
+                  )}
+                </div>
                 <span className="font-mono text-gray-400 text-[11px] bg-black/40 px-2 py-0.5 rounded">
                   {shot.target_start_sec}s - {shot.target_end_sec}s
                 </span>

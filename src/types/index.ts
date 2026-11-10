@@ -31,6 +31,7 @@ export interface Shot {
   subject_action: string;
   t2i_prompt?: string;          // 专用于通义万相首帧文生图 (基于自适应视觉档案合成)
   i2v_prompt: string;           // 专用于通义万相视频动画 (镜头机位/人物动力学微动)
+  shot_focus?: 'character' | 'environment' | 'prop' | 'pov_antagonist'; // 镜头焦点分类：主角动作 / 宏观环境空镜 / 器物微距 / 主观视点
   character_anchor?: string;    // 全局角色特征锚点 (确保多镜头人设一致性)
   rendered_video_path?: string;
   status: 'pending' | 'generating' | 'ready' | 'fallback_image';
