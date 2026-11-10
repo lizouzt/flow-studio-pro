@@ -17,13 +17,13 @@ module.exports = {
     },
 
     image: {
-      model: "wanx2.1-t2i-turbo",
+      model: "wan2.7-image",
       size: "720*1280", // 9:16 短视频竖屏画幅
       style: "<auto>",
     },
 
     video: {
-      model: "wanx2.1-i2v-plus", // 旗舰版 "wanx2.1-i2v-plus" 或 极速版 "wanx2.1-i2v-turbo"
+      model: "wan2.7-i2v", // 旗舰版 "wanx2.1-i2v-plus" 或 极速版 "wanx2.1-i2v-turbo"
       resolution: "720p",        // "720p" 或 "1080p"
       prompt_extend: false,      // 关闭自动扩展，保证运镜精准
     },

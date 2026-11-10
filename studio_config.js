@@ -67,7 +67,7 @@ module.exports = {
        * 万相生图模型型号
        * 推荐："wanx2.1-t2i-turbo" (极速高画质), "wanx2.1-t2i-plus" (旗舰版), "wanx-v1" (经典写实)
        */
-      model: "wanx2.1-t2i-turbo",
+      model: "wan2.7-image",
 
       /**
        * 画面生成分辨率与比例
@@ -93,7 +93,7 @@ module.exports = {
        *  - "wanx2.1-i2v-plus"  : 旗舰版，运镜稳定性与物理动力学表现最佳 (推荐)
        *  - "wanx2.1-i2v-turbo" : 极速版，生成更快、成本更低
        */
-      model: "wanx2.1-i2v-plus",
+      model: "wan2.7-i2v",
 
       /**
        * 视频生成分辨率

@@ -103,6 +103,12 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
             <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-semibold border border-amber-500/20">
               共 {shots.length} 镜
             </span>
+            {visualProfile?.character_benchmark?.confirmed && (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold border border-emerald-500/30 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                主角定妆真锁脸已激活 (Wan 2.7 多模态参考图)
+              </span>
+            )}
           </div>
           <span className="text-xs text-gray-400 truncate">
             自适应世界观：

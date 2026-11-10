@@ -392,8 +392,10 @@ export default function StoryStudioWeb() {
       showToast('尚未生成或指定定妆照！', 'error');
       return;
     }
-    setCharacterBenchmark((prev) => (prev ? { ...prev, confirmed: true } : null));
-    showToast('🔒 主角面部特征已固化锁定！各分镜将严格依此肖像保持同一人脸。', 'success');
+    const confirmedBenchmark = { ...characterBenchmark, confirmed: true };
+    setCharacterBenchmark(confirmedBenchmark);
+    setVisualProfile((prev) => (prev ? { ...prev, character_benchmark: confirmedBenchmark } : prev));
+    showToast('🔒 主角面部特征已固化锁定！所有分镜生图将真实吃入该定妆照保持面部绝对一致。', 'success');
   };
 
   // 2. 真实调用 AI 模型绘制首帧 (支持内容哈希缓存快速复用与 force 强制刷新)
@@ -404,7 +406,7 @@ export default function StoryStudioWeb() {
       const res = await fetch('/api/wanx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, shotId, visualProfile, force }),
+        body: JSON.stringify({ prompt, shotId, visualProfile, force, characterBenchmark }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '生图失败');
@@ -465,7 +467,7 @@ export default function StoryStudioWeb() {
         const res = await fetch('/api/wanx', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: promptToUse, shotId: targetShot.shot_id, visualProfile, force: false }),
+          body: JSON.stringify({ prompt: promptToUse, shotId: targetShot.shot_id, visualProfile, force: false, characterBenchmark }),
         });
         const data = await res.json();
         if (res.ok && data.imageUrl) {
@@ -574,6 +576,7 @@ export default function StoryStudioWeb() {
           action: 'submit',
           shotId: shot.shot_id,
           imageUrl: selectedImg,
+          remoteImageUrl: shot.remote_image_url,
           prompt: shot.i2v_prompt,
           duration: Math.round(shot.target_duration_sec),
         }),

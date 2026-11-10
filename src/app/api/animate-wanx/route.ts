@@ -150,7 +150,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, taskId, shotId, imageUrl, prompt, duration = 5 } = body;
+    const { action, taskId, shotId, imageUrl, remoteImageUrl, prompt, duration = 5 } = body;
     const config = getStudioConfig();
     const apiKey = config.dashscope.api_key;
 
@@ -171,7 +171,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '首帧图片 URL 不能为空' }, { status: 400 });
     }
 
-    const videoModel = config.dashscope.video?.model || 'wanx2.1-i2v-plus';
+    const rawModel = config.dashscope.video?.model || 'wan2.7-i2v';
+    const isWan27 = rawModel.toLowerCase().includes('wan2.7');
+    const videoModel = isWan27 ? 'wan2.7-i2v' : rawModel;
+
     const rawResolution = config.dashscope.video?.resolution || '720p';
     const resolution = rawResolution.toLowerCase().includes('720') ? '720P' : rawResolution.toUpperCase();
     const promptExtend = config.dashscope.video?.prompt_extend ?? false;
@@ -240,19 +243,37 @@ export async function POST(req: NextRequest) {
     }
 
     // 提交异步 I2V 图生视频任务至阿里云百炼 (官方标准端点为 video-synthesis)
+    const effectiveImageUrl = (remoteImageUrl && typeof remoteImageUrl === 'string' && remoteImageUrl.startsWith('http') && !remoteImageUrl.includes('localhost'))
+      ? remoteImageUrl
+      : finalImageUrl;
+
+    const submitInput: Record<string, any> = {
+      prompt: prompt || 'Cinematic lighting, high quality motion, photorealistic',
+    };
+
+    if (isWan27) {
+      // Wan 2.7 官方标准 media 媒体入参规范
+      submitInput.media = [
+        {
+          type: 'first_frame',
+          url: effectiveImageUrl,
+        },
+      ];
+    } else {
+      // Wanx 2.1 传统入参
+      submitInput.img_url = effectiveImageUrl;
+    }
+
     const submitPayload: Record<string, any> = {
       model: videoModel,
-      input: {
-        img_url: finalImageUrl,
-        prompt: prompt || 'Cinematic lighting, high quality motion, photorealistic',
-      },
+      input: submitInput,
       parameters: {
         resolution,
         prompt_extend: promptExtend,
       },
     };
 
-    // wanx2.1-i2v-plus 固定 5 秒，不支持 duration 自定义参数；其他模型保留
+    // wanx2.1-i2v-plus 固定 5 秒，不支持 duration 自定义参数；Wan 2.7 与其他模型支持自定义时长
     if (!videoModel.includes('wanx2.1-i2v-plus')) {
       submitPayload.parameters.duration = Math.max(3, Math.min(10, Math.round(duration)));
     }

@@ -107,4 +107,6 @@ site/assets/media/_recordings/
 !/output/videos/.gitkeep
 /output/subtitles/*
 !/output/subtitles/.gitkeep
+/output/character/*
+!/output/character/.gitkeep
 

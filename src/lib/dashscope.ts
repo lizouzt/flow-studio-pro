@@ -160,33 +160,97 @@ function estimateDurationFromSize(byteLength: number): number {
 export async function generateWanxImage(
   prompt: string,
   apiKey: string,
-  model: string = 'wanx2.1-t2i-turbo',
-  size: string = '720*1280'
+  model: string = 'wan2.7-image',
+  size: string = '720*1280',
+  referenceImage?: string | null
 ): Promise<string> {
   if (!apiKey || apiKey.startsWith('YOUR_') || apiKey.includes('sk-xxx') || apiKey.trim() === '') {
     throw new Error('未配置有效的阿里云百炼 API Key (DASHSCOPE_API_KEY)，无法调用通义万相生成首帧。');
   }
 
-  // 智能纠错与映射：百炼官方万相 2.1 文生图模型标识符为 wanx2.1-t2i-turbo / wanx2.1-t2i-plus (wanx 与 2.1 之间无连字符)
-  let targetModel = model || 'wanx2.1-t2i-turbo';
-  if (targetModel === 'wanx-2.1-t2i-turbo' || targetModel === 'wanx-2.1') {
+  // 智能纠错与映射模型标识符
+  let targetModel = (model || 'wan2.7-image').trim();
+  const lower = targetModel.toLowerCase();
+  if (lower === 'wan2.7-image' || lower === 'wan2.7') {
+    targetModel = 'wan2.7-image';
+  } else if (lower === 'wan2.7-image-pro') {
+    targetModel = 'wan2.7-image-pro';
+  } else if (lower === 'wan2.6-image') {
+    targetModel = 'wan2.6-image';
+  } else if (targetModel === 'wanx-2.1-t2i-turbo' || targetModel === 'wanx-2.1') {
     targetModel = 'wanx2.1-t2i-turbo';
   } else if (targetModel === 'wanx-2.1-t2i-plus') {
     targetModel = 'wanx2.1-t2i-plus';
   }
 
-  const res = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis', {
+  // 判断是否走百炼多模态生成管线 (Wan 2.7 / Wan 2.6 支持输入参考图像锁定人物一致性)
+  const isMultimodalModel =
+    targetModel.includes('wan2.7') ||
+    targetModel.includes('wan2.6') ||
+    targetModel.includes('multimodal') ||
+    targetModel.includes('image-pro') ||
+    Boolean(referenceImage);
+
+  // 若传入了参考定妆图，但当前配置为纯文生图模型，智能升级至 wan2.7-image 开启真参考锁脸
+  if (referenceImage && !targetModel.includes('wan2.7') && !targetModel.includes('wan2.6')) {
+    console.log(`[DashScope] 检测到主角定妆参考图输入，自动升维调用多模态主体一致性模型 wan2.7-image`);
+    targetModel = 'wan2.7-image';
+  }
+
+  let endpoint: string;
+  let requestBody: any;
+
+  if (isMultimodalModel) {
+    endpoint = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
+
+    const content: Array<{ text?: string; image?: string }> = [];
+    if (referenceImage) {
+      content.push({
+        text: `【核心主体面容绝对一致性锁脸】：画面中主体人物的面部五官结构、骨相比例、发型与年龄感，必须绝对严格对照参考图中的主角，确保画中核心人物与参考图为绝对同一人。分镜情节与环境动作要求：${prompt}`,
+      });
+      content.push({
+        image: referenceImage,
+      });
+    } else {
+      content.push({
+        text: prompt,
+      });
+    }
+
+    requestBody = {
+      model: targetModel,
+      input: {
+        messages: [
+          {
+            role: 'user',
+            content,
+          },
+        ],
+      },
+      parameters: {
+        size,
+        n: 1,
+        watermark: false,
+      },
+    };
+  } else {
+    endpoint = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis';
+    requestBody = {
+      model: targetModel,
+      input: { prompt },
+      parameters: { size, n: 1 },
+    };
+  }
+
+  console.log(`[DashScope Image] 正在向端点 ${endpoint} 发起请求 (模型: ${targetModel}, 包含参考图: ${Boolean(referenceImage)})...`);
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey.trim()}`,
       'Content-Type': 'application/json',
-      'X-DashScope-Async': 'enable'
+      'X-DashScope-Async': 'enable',
     },
-    body: JSON.stringify({
-      model: targetModel,
-      input: { prompt },
-      parameters: { size, n: 1 }
-    })
+    body: JSON.stringify(requestBody),
   });
 
   if (!res.ok) {
@@ -195,34 +259,46 @@ export async function generateWanxImage(
   }
 
   const data = await res.json();
+
+  // 若同步直接返回了结果，直接提取
+  const immediateUrl =
+    data?.output?.choices?.[0]?.message?.content?.[0]?.image ||
+    data?.output?.results?.[0]?.url ||
+    data?.output?.choices?.[0]?.message?.content?.[0]?.url;
+  if (immediateUrl) return immediateUrl;
+
   const taskId = data?.output?.task_id;
   if (!taskId) {
-    throw new Error(`通义万相未返回 task_id: ${JSON.stringify(data)}`);
+    throw new Error(`通义万相未返回 task_id 或图像地址: ${JSON.stringify(data)}`);
   }
 
-  // 轮询万相异步生成结果 (最多轮询 40 秒)
-  const maxAttempts = 20;
+  // 轮询万相异步生成结果 (最多轮询 60 秒，每 2 秒一次)
+  const maxAttempts = 30;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 2000));
     const checkRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
       headers: {
-        'Authorization': `Bearer ${apiKey.trim()}`
-      }
+        'Authorization': `Bearer ${apiKey.trim()}`,
+      },
     });
 
     if (checkRes.ok) {
       const checkData = await checkRes.json();
       const status = checkData?.output?.task_status;
       if (status === 'SUCCEEDED') {
-        const imgUrl = checkData?.output?.results?.[0]?.url;
+        const imgUrl =
+          checkData?.output?.results?.[0]?.url ||
+          checkData?.output?.choices?.[0]?.message?.content?.[0]?.image ||
+          checkData?.output?.choices?.[0]?.message?.content?.[0]?.url ||
+          checkData?.output?.image_url;
         if (imgUrl) return imgUrl;
-      } else if (status === 'FAILED') {
-        throw new Error(`通义万相生成失败: ${checkData?.output?.message || '未知错误'}`);
+      } else if (status === 'FAILED' || status === 'CANCELED') {
+        throw new Error(`通义万相生成失败: ${checkData?.output?.message || checkData?.output?.code || '未知错误'}`);
       }
     }
   }
 
-  throw new Error('通义万相生图超时，请稍后重试。');
+  throw new Error('通义万相生图排队超时，请稍后重试。');
 }
 
 /**
