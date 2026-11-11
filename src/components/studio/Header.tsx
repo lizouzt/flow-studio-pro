@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Clapperboard, Settings } from 'lucide-react';
+import { Clapperboard, Settings, FolderClock } from 'lucide-react';
 
 interface HeaderProps {
   currentStep: number;
@@ -9,6 +9,7 @@ interface HeaderProps {
   shotCount: number;
   isKeyConfigured: boolean;
   onOpenConfig: () => void;
+  onOpenProjectHistory?: () => void;
 }
 
 const STEPS = [
@@ -24,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   shotCount,
   isKeyConfigured,
   onOpenConfig,
+  onOpenProjectHistory,
 }) => {
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-brand-border px-6 py-3 flex items-center justify-between">
@@ -71,6 +73,17 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* 状态指示胶囊与设置按钮 */}
       <div className="flex items-center gap-3">
+        {onOpenProjectHistory && (
+          <button
+            onClick={onOpenProjectHistory}
+            title="恢复历史任务或工程"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold transition shadow-sm"
+          >
+            <FolderClock className="w-3.5 h-3.5" />
+            <span>历史工程</span>
+          </button>
+        )}
+
         <div
           onClick={onOpenConfig}
           className="cursor-pointer flex items-center gap-2 px-3 py-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] text-[11px] text-gray-300 transition"

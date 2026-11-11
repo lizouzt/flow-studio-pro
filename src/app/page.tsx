@@ -13,6 +13,7 @@ import {
   ConfigDrawer,
   ToastNotification,
   ToastState,
+  ProjectHistoryModal,
 } from '@/components/studio';
 
 const INITIAL_SCRIPT = `五十骑直插五万敌阵，生擒叛将还毫发无损撤回临安，这不是金庸小说，而是二十二岁辛弃疾的真实人生。
@@ -39,6 +40,7 @@ export default function StoryStudioWeb() {
   const [shots, setShots] = useState<Shot[]>([]);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [showConfigDrawer, setShowConfigDrawer] = useState<boolean>(false);
+  const [showProjectHistory, setShowProjectHistory] = useState<boolean>(false);
   const [draftResult, setDraftResult] = useState<any>(null);
 
   // 融合高级媒体引擎状态 (Critic / 闭环动画 / 母版直出)
@@ -774,6 +776,68 @@ export default function StoryStudioWeb() {
     }
   };
 
+  // 5. 恢复历史工程与任务数据
+  const handleRestoreProject = (projectData: any) => {
+    if (!projectData || !Array.isArray(projectData.shots)) {
+      showToast('无效的工程数据！', 'error');
+      return;
+    }
+
+    const loadedShots: Shot[] = projectData.shots;
+    setShots(loadedShots);
+
+    // 还原文稿
+    if (projectData.script) {
+      setScript(projectData.script);
+    } else if (loadedShots.length > 0) {
+      setScript(loadedShots.map((s) => s.voiceover).filter(Boolean).join('\n\n'));
+    }
+
+    // 还原音频
+    const audioToUse = projectData.matchedAudioPath || projectData.audioPath || '';
+    if (audioToUse) {
+      setGeneratedAudioPath(audioToUse);
+    }
+
+    // 还原视觉档案与主角锚点
+    if (projectData.visualProfile) {
+      setVisualProfile(projectData.visualProfile);
+    }
+    if (projectData.characterBenchmark) {
+      setCharacterBenchmark(projectData.characterBenchmark);
+    } else {
+      const foundChar = loadedShots.find((s) => s.character_anchor)?.character_anchor;
+      if (foundChar) {
+        setCharacterBenchmark({
+          character_name: foundChar.slice(0, 16),
+          description: foundChar,
+          attire: projectData.visualProfile?.attire_props || '',
+          portrait_image: loadedShots[0]?.keyframe_image || '',
+          status: 'ready',
+          confirmed: true,
+        });
+      }
+    }
+
+    // 检查视频就绪状态智能跳转
+    const readyVideos = loadedShots.filter((s) => Boolean(s.rendered_video_path)).length;
+    const allVideosReady = loadedShots.length > 0 && readyVideos === loadedShots.length;
+
+    if (allVideosReady) {
+      setCurrentStep(4);
+      showToast(
+        `🎉 已恢复【${projectData.project_name || '历史工程'}】！全部 ${loadedShots.length} 镜视频切片已就绪，已直达第 4 步成片交付！`,
+        'success'
+      );
+    } else {
+      setCurrentStep(2);
+      showToast(
+        `📂 已恢复【${projectData.project_name || '历史工程'}】！共载入 ${loadedShots.length} 个分镜 (${readyVideos} 镜视频就绪)。`,
+        'success'
+      );
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans">
       {/* 顶部玻璃拟态导航栏 */}
@@ -783,6 +847,7 @@ export default function StoryStudioWeb() {
         shotCount={shots.length}
         isKeyConfigured={isKeyConfigured}
         onOpenConfig={() => setShowConfigDrawer(true)}
+        onOpenProjectHistory={() => setShowProjectHistory(true)}
       />
 
       {/* 主内容视图 (根据当前流转 Step 渲染对应解耦组件) */}
@@ -822,6 +887,7 @@ export default function StoryStudioWeb() {
                 onOralPolish={handleOralPolish}
                 onGenerateTTSAndASR={handleGenerateTTSAndASR}
                 onGoToStoryboard={() => setCurrentStep(2)}
+                onOpenProjectHistory={() => setShowProjectHistory(true)}
               />
             </motion.section>
           )}
@@ -857,6 +923,7 @@ export default function StoryStudioWeb() {
                 criticReviewData={criticReviewData}
                 onGoToScript={() => setCurrentStep(1)}
                 onGoToDelivery={() => setCurrentStep(4)}
+                onOpenProjectHistory={() => setShowProjectHistory(true)}
                 onCriticInspect={handleCriticInspect}
                 onAnimateWanx={handleAnimateWanx}
                 onRegenerateWanx={handleRegenerateWanx}
@@ -927,6 +994,13 @@ export default function StoryStudioWeb() {
         asrApiKey={asrApiKey}
         setAsrApiKey={setAsrApiKey}
         onSaveConfig={handleSaveConfig}
+      />
+
+      {/* 历史项目恢复模态框 */}
+      <ProjectHistoryModal
+        isOpen={showProjectHistory}
+        onClose={() => setShowProjectHistory(false)}
+        onRestoreProject={handleRestoreProject}
       />
 
       {/* 全局 Toast 提示浮窗 */}

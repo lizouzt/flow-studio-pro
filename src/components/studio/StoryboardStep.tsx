@@ -15,6 +15,7 @@ import {
   Wand2,
   Film,
   Play,
+  FolderClock,
 } from 'lucide-react';
 import { Shot, VisualContextProfile } from '@/types';
 
@@ -30,6 +31,7 @@ interface StoryboardStepProps {
   criticReviewData: { [shotId: string]: any };
   onGoToScript: () => void;
   onGoToDelivery?: () => void;
+  onOpenProjectHistory?: () => void;
   onCriticInspect: (shot: Shot) => void;
   onAnimateWanx: (shot: Shot) => void;
   onRegenerateWanx: (shotId: string, prompt: string, force?: boolean) => void;
@@ -52,6 +54,7 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
   criticReviewData,
   onGoToScript,
   onGoToDelivery,
+  onOpenProjectHistory,
   onCriticInspect,
   onAnimateWanx,
   onRegenerateWanx,
@@ -87,12 +90,23 @@ export const StoryboardStep: React.FC<StoryboardStepProps> = ({
             请先在第一步中输入您的口播文稿，并点击“生成 AI 配音与时间戳”。
           </p>
         </div>
-        <button
-          onClick={onGoToScript}
-          className="mt-2 px-5 py-2.5 rounded-xl bg-amber-500 text-black text-xs font-semibold hover:bg-amber-400 transition"
-        >
-          前往撰写与生成配音
-        </button>
+        <div className="flex items-center gap-3 mt-2">
+          <button
+            onClick={onGoToScript}
+            className="px-5 py-2.5 rounded-xl bg-amber-500 text-black text-xs font-semibold hover:bg-amber-400 transition"
+          >
+            前往撰写与生成配音
+          </button>
+          {onOpenProjectHistory && (
+            <button
+              onClick={onOpenProjectHistory}
+              className="px-4 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-gray-200 text-xs font-semibold border border-white/[0.1] transition flex items-center gap-1.5"
+            >
+              <FolderClock className="w-4 h-4 text-amber-400" />
+              <span>恢复历史工程</span>
+            </button>
+          )}
+        </div>
       </div>
     );
   }

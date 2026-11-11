@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   ArrowRight,
   RefreshCw,
+  FolderClock,
 } from 'lucide-react';
 
 interface ScriptAndVoiceStepProps {
@@ -42,6 +43,7 @@ interface ScriptAndVoiceStepProps {
   onOralPolish: () => void;
   onGenerateTTSAndASR: (force?: boolean) => void;
   onGoToStoryboard: () => void;
+  onOpenProjectHistory?: () => void;
 }
 
 export const ScriptAndVoiceStep: React.FC<ScriptAndVoiceStepProps> = ({
@@ -70,6 +72,7 @@ export const ScriptAndVoiceStep: React.FC<ScriptAndVoiceStepProps> = ({
   onOralPolish,
   onGenerateTTSAndASR,
   onGoToStoryboard,
+  onOpenProjectHistory,
 }) => {
   const wordCount = script.replace(/\s+/g, '').length;
   const estimatedSeconds = Math.round(wordCount / 4.5 / speechRate);
@@ -85,6 +88,16 @@ export const ScriptAndVoiceStep: React.FC<ScriptAndVoiceStepProps> = ({
             <h2 className="text-sm font-semibold text-white">短视频口播创作</h2>
           </div>
           <div className="flex items-center gap-2">
+            {onOpenProjectHistory && (
+              <button
+                onClick={onOpenProjectHistory}
+                title="读取/恢复历史已保存的任务工程"
+                className="px-2.5 py-1 text-xs rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 border border-white/[0.08] flex items-center gap-1.5 transition"
+              >
+                <FolderClock className="w-3.5 h-3.5 text-amber-400" />
+                <span>恢复历史工程</span>
+              </button>
+            )}
             <button
               onClick={() => setShowAIAssistant(!showAIAssistant)}
               className="px-2.5 py-1 text-xs rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 flex items-center gap-1 transition"

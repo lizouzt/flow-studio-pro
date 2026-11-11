@@ -6,3 +6,4 @@ export * from './VideoTransitStep';
 export * from './DeliveryStep';
 export * from './ConfigDrawer';
 export * from './ToastNotification';
+export * from './ProjectHistoryModal';
