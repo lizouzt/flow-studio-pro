@@ -105,9 +105,30 @@ export async function POST(req: NextRequest) {
   }
 }
 
+function getEnhancedEnv(): NodeJS.ProcessEnv {
+  const currentPath = process.env.PATH || '';
+  const wingetFFmpegBin = path.join(
+    process.env.LOCALAPPDATA || '',
+    'Microsoft',
+    'WinGet',
+    'Packages',
+    'Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe',
+    'ffmpeg-9.0.2-full_build',
+    'bin'
+  );
+
+  if (fs.existsSync(path.join(wingetFFmpegBin, 'ffmpeg.exe')) && !currentPath.includes(wingetFFmpegBin)) {
+    return {
+      ...process.env,
+      PATH: `${wingetFFmpegBin};${currentPath}`,
+    };
+  }
+  return process.env;
+}
+
 function runPythonAsync(cmd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args);
+    const child = spawn(cmd, args, { env: getEnhancedEnv() });
     let out = '';
     let err = '';
     child.stdout.on('data', (d) => { out += d.toString(); });

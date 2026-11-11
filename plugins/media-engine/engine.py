@@ -11,7 +11,33 @@ import argparse
 import os
 import sys
 import subprocess
+import shutil
 from typing import List
+
+def ensure_ffmpeg_in_path():
+    """Ensure ffmpeg and ffprobe are in PATH even if the current shell session has not refreshed."""
+    if shutil.which("ffmpeg") and shutil.which("ffprobe"):
+        return
+
+    candidate_paths = [
+        os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin"),
+        r"C:\ffmpeg\bin",
+        r"C:\Program Files\ffmpeg\bin",
+    ]
+
+    winget_pkg_dir = os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Packages")
+    if os.path.exists(winget_pkg_dir):
+        for root, _, files in os.walk(winget_pkg_dir):
+            if "ffmpeg.exe" in files and "ffprobe.exe" in files:
+                candidate_paths.insert(0, root)
+                break
+
+    for p in candidate_paths:
+        if os.path.exists(os.path.join(p, "ffmpeg.exe")):
+            os.environ["PATH"] = p + os.pathsep + os.environ.get("PATH", "")
+            break
+
+ensure_ffmpeg_in_path()
 
 try:
     from PIL import Image, ImageChops
