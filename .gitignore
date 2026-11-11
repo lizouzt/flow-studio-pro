@@ -99,6 +99,9 @@ site/assets/media/_recordings/
 # ==========================================
 # 9. Media & Render Outputs (User Generated)
 # ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
 /output/audio/*
 !/output/audio/.gitkeep
 /output/images/*
@@ -109,4 +112,10 @@ site/assets/media/_recordings/
 !/output/subtitles/.gitkeep
 /output/character/*
 !/output/character/.gitkeep
+/output/projects/*
+!/output/projects/.gitkeep
+/output/master/*
+!/output/master/.gitkeep
+/output/critic/*
+!/output/critic/.gitkeep
 
